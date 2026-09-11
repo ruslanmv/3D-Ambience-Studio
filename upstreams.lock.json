@@ -1,0 +1,46 @@
+{
+  "observedAt": "2026-09-11",
+  "note": "Pins recorded during initial scaffold. Code licenses do not automatically cover model weights, datasets, checkpoints, or generated-output rights.",
+  "repositories": [
+    {
+      "name": "Text2VR",
+      "url": "https://github.com/Text2VR/Text2VR.git",
+      "ref": "5ec7921fb9c27807094ddd625f694df71d778569",
+      "group": "reference",
+      "strategy": "architecture-reference",
+      "licenseNote": "README states MIT; bundled components include additional/restrictive licenses. Audit before code reuse."
+    },
+    {
+      "name": "DreamScene360",
+      "url": "https://github.com/ShijieZhou-UCLA/DreamScene360.git",
+      "ref": "4a7664e4c4b2891c84c2bc0bede771049271b341",
+      "group": "reference",
+      "strategy": "reference-only-default",
+      "licenseNote": "Root LICENSE.md is Gaussian-Splatting non-commercial/research/evaluation oriented."
+    },
+    {
+      "name": "PanFusion",
+      "url": "https://github.com/chengzhag/PanFusion.git",
+      "ref": "5d6d09219b447b834364aad365446dbf7243dd70",
+      "group": "core",
+      "strategy": "panorama-provider-candidate",
+      "licenseNote": "Repository code MIT. Audit model weights and transitive model licenses separately."
+    },
+    {
+      "name": "TripoSR",
+      "url": "https://github.com/VAST-AI-Research/TripoSR.git",
+      "ref": "107cefdc244c39106fa830359024f6a2f1c78871",
+      "group": "v2",
+      "strategy": "image-to-3d-provider-candidate",
+      "licenseNote": "Repository code MIT. Audit model weights/dependencies separately."
+    },
+    {
+      "name": "glTF-Transform",
+      "url": "https://github.com/donmccurdy/glTF-Transform.git",
+      "ref": "c3a2ca47b94bc76e1251575ec9862e6d982a5114",
+      "group": "core",
+      "strategy": "asset-optimizer-tool",
+      "licenseNote": "MIT."
+    }
+  ]
+}

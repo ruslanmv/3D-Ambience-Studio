@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "sunset-beach",
+  "version": "1.0.0",
+  "name": "Sunset Beach",
+  "description": "A calm tropical beach at sunset.",
+  "category": "relax",
+  "tags": [
+    "beach",
+    "ocean",
+    "sunset",
+    "meditation"
+  ],
+  "preview": {
+    "src": "panorama-preview.webp"
+  },
+  "orientation": {
+    "yawDegrees": 0,
+    "floorY": 0
+  },
+  "variants": {
+    "desktop": {
+      "type": "panorama",
+      "background": "panorama-desktop.webp",
+      "width": 4096,
+      "height": 2048,
+      "bytes": 1000000
+    },
+    "quest": {
+      "type": "panorama",
+      "background": "panorama-quest.webp",
+      "width": 2048,
+      "height": 1024,
+      "bytes": 500000
+    },
+    "companion": {
+      "type": "gradient",
+      "preset": "sunset"
+    }
+  },
+  "audio": {
+    "ambient": "ambience.ogg",
+    "loop": true,
+    "defaultVolume": 0.45
+  },
+  "lighting": {
+    "preset": "sunset-soft",
+    "exposure": 0.9,
+    "keyIntensity": 0.7
+  },
+  "effects": [],
+  "geometry": [],
+  "compatibility": {
+    "minRuntime": "0.1.0",
+    "passthrough": "hidden"
+  }
+}

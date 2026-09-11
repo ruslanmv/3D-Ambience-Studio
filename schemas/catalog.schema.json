@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourfriend.online/schemas/ambience/catalog-v1.schema.json",
+  "title": "3D Ambience Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "environments"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "generatedAt": {"type": "string"},
+    "environments": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "version", "name", "category", "preview", "manifest"],
+        "properties": {
+          "id": {"type": "string"}, "version": {"type": "string"}, "name": {"type": "string"},
+          "description": {"type": "string"}, "category": {"type": "string"},
+          "tags": {"type": "array", "items": {"type": "string"}},
+          "preview": {"type": "string"}, "manifest": {"type": "string"},
+          "featured": {"type": "boolean"}, "bytes": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}
