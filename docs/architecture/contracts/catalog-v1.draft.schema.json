@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourfriend.online/schemas/ambience/catalog-v1.schema.json",
+  "title": "3D Ambience Catalog v1 (DRAFT)",
+  "description": "Entry point for 3D-Avatar-Chatbot. Must contain everything the environment picker needs so that no manifest is fetched until a user selects an environment. DRAFT proposed to replace schemas/catalog.schema.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "revision",
+    "generatedAt",
+    "baseUrl"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonic. Each revision is also written immutably to catalog/{revision}.json; catalog.json is the mutable pointer, which is what makes rollback a copy."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "baseUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Absolute prefix that every relative path in this document resolves against. The catalog is the only place a hostname appears; manifests stay relative so a version directory remains mirrorable."
+    },
+    "categories": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "relax",
+          "meditation",
+          "study",
+          "sleep",
+          "nature",
+          "cozy",
+          "fantasy",
+          "focus",
+          "chill",
+          "seasonal"
+        ]
+      }
+    },
+    "environments": {
+      "type": "array",
+      "description": "Present while the library is served as a single document. Becomes optional once sharding is introduced (an additive change that does not bump schemaVersion).",
+      "items": {
+        "$ref": "#/$defs/catalogEntry"
+      }
+    },
+    "pages": {
+      "type": "array",
+      "description": "Growth path beyond roughly 200 environments: this document becomes an index of shards.",
+      "items": {
+        "$ref": "#/$defs/relativePath"
+      }
+    },
+    "featured": {
+      "$ref": "#/$defs/relativePath",
+      "description": "Optional prebuilt shard for first paint, so the UI can render before the full catalog arrives."
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+      "maxLength": 200
+    },
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-f]{6}$"
+    },
+    "targetCost": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bytes",
+        "decodedTextureBytes"
+      ],
+      "properties": {
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Download size. Zero for a solid/gradient/none variant, which downloads nothing."
+        },
+        "decodedTextureBytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "catalogEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "name",
+        "category",
+        "thumbnail",
+        "manifest",
+        "fallbackColor",
+        "minRuntime",
+        "publishedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "relax",
+            "meditation",
+            "study",
+            "sleep",
+            "nature",
+            "cozy",
+            "fantasy",
+            "focus",
+            "chill",
+            "seasonal"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "maxItems": 16
+        },
+        "thumbnail": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "preview": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "manifest": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "fallbackColor": {
+          "$ref": "#/$defs/hexColor",
+          "description": "Duplicated from the manifest so the runtime can paint a background the moment a user selects, before the manifest has arrived."
+        },
+        "minRuntime": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Repeated here so an incompatible environment can be filtered or greyed out without fetching its manifest."
+        },
+        "hasAudio": {
+          "type": "boolean"
+        },
+        "hasGeometry": {
+          "type": "boolean"
+        },
+        "targets": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-target download and resident cost, so a headset can warn or filter before committing to a download. The catalog's most useful non-obvious field.",
+          "properties": {
+            "desktop": {
+              "$ref": "#/$defs/targetCost"
+            },
+            "quest": {
+              "$ref": "#/$defs/targetCost"
+            },
+            "mobile": {
+              "$ref": "#/$defs/targetCost"
+            },
+            "companion": {
+              "$ref": "#/$defs/targetCost"
+            }
+          }
+        },
+        "featured": {
+          "type": "boolean"
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

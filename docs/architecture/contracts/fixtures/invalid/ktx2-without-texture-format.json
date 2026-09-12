@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "sunset-beach",
+  "version": "1.0.0",
+  "minRuntime": "1.0.0",
+  "name": "Sunset Beach",
+  "description": "A calm tropical beach at sunset, gentle waves, no people.",
+  "category": "relax",
+  "tags": [
+    "beach",
+    "ocean",
+    "sunset",
+    "meditation"
+  ],
+  "fallbackColor": "#3a2436",
+  "preview": {
+    "src": "preview.webp",
+    "width": 1024,
+    "height": 512,
+    "bytes": 84210,
+    "hash": "sha256-/ir0sJkMbbqbjwkpAVYUEPTP8l1KzX824XIEJydNX28="
+  },
+  "thumbnail": {
+    "src": "thumb.webp",
+    "width": 320,
+    "height": 160,
+    "bytes": 11204,
+    "hash": "sha256-AaIQRtFr4qn8WA4gLe8X8HaD1iVSWTrz8SL5V+1wJF8="
+  },
+  "variants": {
+    "desktop": {
+      "kind": "panorama",
+      "projection": "equirectangular",
+      "src": "panorama/desktop.webp",
+      "format": "webp",
+      "width": 4096,
+      "height": 2048,
+      "bytes": 912344,
+      "decodedTextureBytes": 44739242,
+      "hash": "sha256-J55oX+LE4wos4r6cPfOdRKqKxeY7+S8Ai4DBeKk/B3Q="
+    },
+    "quest": {
+      "kind": "panorama",
+      "projection": "equirectangular",
+      "src": "panorama/quest.ktx2",
+      "format": "ktx2",
+      "width": 4096,
+      "height": 2048,
+      "bytes": 4812003,
+      "decodedTextureBytes": 11744051,
+      "hash": "sha256-8yIcjMeHuBMcdgDAqa8PEvCb0G9aJKv1FUoPYH5tyjI="
+    },
+    "mobile": {
+      "kind": "panorama",
+      "projection": "equirectangular",
+      "src": "panorama/mobile.webp",
+      "format": "webp",
+      "width": 2048,
+      "height": 1024,
+      "bytes": 284110,
+      "decodedTextureBytes": 11184810,
+      "hash": "sha256-V1t7IjZUYUDLVzM1uvRjTuWErN338MDRguilxiLBQHc="
+    },
+    "companion": {
+      "kind": "solid",
+      "color": "#3a2436"
+    }
+  },
+  "audio": {
+    "sources": [
+      {
+        "src": "audio/ambience.opus.ogg",
+        "mime": "audio/ogg; codecs=opus",
+        "bytes": 1984220,
+        "hash": "sha256-EvFBxORU5ZhTjc4+GJyeTkwYocawj1NQpLOOFQcsR9w="
+      },
+      {
+        "src": "audio/ambience.m4a",
+        "mime": "audio/mp4; codecs=mp4a.40.2",
+        "bytes": 2310554,
+        "hash": "sha256-wKzs6D/wD+q21SV9yH9atRlJkxgf80IvYhqjgc9aIuw="
+      }
+    ],
+    "loop": true,
+    "seamless": true,
+    "durationMs": 182000,
+    "defaultVolume": 0.45,
+    "loudnessLufs": -23.0
+  },
+  "lighting": {
+    "preset": "sunset-soft",
+    "exposure": 0.9,
+    "hdr": null
+  },
+  "orientation": {
+    "forwardYawDegrees": 118,
+    "floorY": 0,
+    "avatarAnchor": {
+      "position": [
+        0.5,
+        0,
+        -0.9
+      ],
+      "faceUser": true
+    },
+    "anchors": [
+      {
+        "name": "horizon",
+        "dir": [
+          0,
+          -0.05,
+          -1
+        ]
+      },
+      {
+        "name": "sun",
+        "dir": [
+          -0.6,
+          0.12,
+          -0.8
+        ]
+      }
+    ]
+  },
+  "effects": [],
+  "presentation": {
+    "xr": {
+      "background": "panorama"
+    },
+    "passthrough": {
+      "behavior": "hidden"
+    },
+    "companion": {
+      "behavior": "solid"
+    }
+  },
+  "geometry": [],
+  "credits": null
+}

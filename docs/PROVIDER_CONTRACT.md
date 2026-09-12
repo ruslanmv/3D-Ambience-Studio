@@ -19,7 +19,7 @@ The output must be a 2:1 equirectangular image. The Studio still validates and o
 
 ## Why normalize upstream APIs
 
-PanFusion, future models, commercial APIs, and maintained forks can all have different invocation details. Their worker owns those details; `3D-Ambience-Studio` sees one provider contract.
+Panorama models (PanFusion, Diffusion360, DiT360 — see `OPEN_SOURCE_INVENTORY.md` for which are usable), commercial APIs, and maintained forks all have different invocation details. Their worker owns those details; `3D-Ambience-Studio` sees one provider contract.
 
 ## Future image-to-3D worker
 

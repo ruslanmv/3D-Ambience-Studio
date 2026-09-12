@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "revision": 42,
+  "generatedAt": "2026-09-11T10:00:00Z",
+  "baseUrl": "https://cdn.example/environments/",
+  "categories": ["relax", "meditation", "study", "nature", "cozy"],
+  "environments": [
+    {
+      "id": "sunset-beach",
+      "version": "1.0.0",
+      "name": "Sunset Beach",
+      "description": "A calm tropical beach at sunset, gentle waves, no people.",
+      "category": "relax",
+      "tags": ["beach", "ocean", "sunset", "meditation"],
+      "thumbnail": "sunset-beach/1.0.0/thumb.webp",
+      "preview": "sunset-beach/1.0.0/preview.webp",
+      "manifest": "sunset-beach/1.0.0/environment.json",
+      "fallbackColor": "#3a2436",
+      "minRuntime": "1.0.0",
+      "hasAudio": true,
+      "hasGeometry": false,
+      "targets": {
+        "desktop": { "bytes": 912344, "decodedTextureBytes": 44739242 },
+        "quest": { "bytes": 4812003, "decodedTextureBytes": 11744051 },
+        "mobile": { "bytes": 284110, "decodedTextureBytes": 11184810 },
+        "companion": { "bytes": 0, "decodedTextureBytes": 0 }
+      },
+      "featured": true,
+      "publishedAt": "2026-09-11T09:58:00Z"
+    },
+    {
+      "id": "rainy-study-room",
+      "version": "1.1.0",
+      "name": "Rainy Study Room",
+      "description": "A warm desk by a window, rain outside.",
+      "category": "study",
+      "tags": ["rain", "cozy", "indoor", "focus"],
+      "thumbnail": "rainy-study-room/1.1.0/thumb.webp",
+      "preview": "rainy-study-room/1.1.0/preview.webp",
+      "manifest": "rainy-study-room/1.1.0/environment.json",
+      "fallbackColor": "#241f1b",
+      "minRuntime": "1.0.0",
+      "hasAudio": true,
+      "hasGeometry": false,
+      "targets": {
+        "desktop": { "bytes": 1042110, "decodedTextureBytes": 44739242 },
+        "quest": { "bytes": 5120440, "decodedTextureBytes": 11744051 }
+      },
+      "featured": false,
+      "publishedAt": "2026-09-12T11:02:00Z"
+    }
+  ]
+}
