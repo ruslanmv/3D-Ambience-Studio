@@ -262,6 +262,13 @@ async def build(
         )
 
     manifest = build_manifest(spec, compiled, written, preview, contract_meta)
+    # Validated before it is written, not after. A manifest that fails the schema is not a
+    # publishing problem to notice later — it is a package the runtime will refuse, sitting in an
+    # immutable versioned directory looking finished. The tests validated; the production path did
+    # not, and a batch of ten shipped with `keyDirection` the schema had never been taught about.
+    problems = validate_manifest(manifest)
+    if problems:
+        raise PlatePackageError(f"manifest does not satisfy the schema: {'; '.join(problems)}")
     (out_dir / "environment.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     provenance = build_provenance(spec, compiled, staged, written, contract_meta)
@@ -275,6 +282,28 @@ async def build(
         "preview": preview,
         "reused": reused,
     }
+
+
+def validate_manifest(manifest: dict) -> list[str]:
+    """Check a manifest against the published schema, returning problems rather than raising.
+
+    Soft on a missing validator — `jsonschema` is a dependency, but a packaging accident should
+    not stop a batch that is otherwise correct — and hard on a real violation.
+    """
+    try:
+        import jsonschema
+    except ImportError:  # pragma: no cover - the dependency is declared
+        return []
+    schema_path = Path(__file__).resolve().parents[3] / "schemas" / "environment.schema.json"
+    if not schema_path.exists():
+        return []
+    try:
+        jsonschema.validate(manifest, json.loads(schema_path.read_text(encoding="utf-8")))
+    except jsonschema.ValidationError as exc:
+        return [f"{'/'.join(str(p) for p in exc.absolute_path) or '(root)'}: {exc.message}"]
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"could not read the schema: {exc}"]
+    return []
 
 
 def build_manifest(spec: dict, compiled: dict, written: dict, preview: Path, contract_meta: dict) -> dict:

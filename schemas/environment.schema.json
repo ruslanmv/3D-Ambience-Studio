@@ -169,8 +169,24 @@
           "type": "number",
           "minimum": 0,
           "maximum": 4
+        },
+        "keyDirection": {
+          "description": "Unit-ish direction the key light comes from, [x, y, z], y up.",
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "temperatureK": {
+          "description": "Approximate colour temperature of the key light, in kelvin.",
+          "type": "number",
+          "minimum": 1000,
+          "maximum": 20000
         }
-      }
+      },
+      "description": "A runtime approximation, not a description of the picture: the few values a Three.js scene can be set up from so the avatar is lit roughly the way the plate behind her is."
     },
     "effects": {
       "type": "array",
