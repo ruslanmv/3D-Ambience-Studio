@@ -33,6 +33,18 @@ logger = logging.getLogger(__name__)
 
 
 class BackplateProvider(ABC):
+    """Generates a flat plate for a fixed-camera composition.
+
+    `PlateProvider` below is the same class under the name the wider architecture uses. Both
+    spellings are exported deliberately: "plate" is the standard term and what the environment
+    schema now accepts, while "backplate" is what the existing code and its tests are written
+    against, and renaming working code to match vocabulary is churn rather than improvement.
+
+    `reference_images`, `mask` and `metadata` are optional and every built-in provider ignores
+    at least one of them. They are in the signature rather than bolted on later because adding a
+    parameter to an ABC after third-party adapters exist breaks all of them at once.
+    """
+
     name: str
 
     @abstractmethod
@@ -46,8 +58,17 @@ class BackplateProvider(ABC):
         guide: Path | None = None,
         negative_prompt: str = "",
         seed: int | None = None,
+        reference_images: list[Path] | None = None,
+        mask: Path | None = None,
+        metadata: dict | None = None,
     ) -> dict:
-        """Generate a flat backplate at exactly width×height and return provenance metadata."""
+        """Generate a flat plate at exactly width×height and return provenance metadata.
+
+        `guide` is the spatial condition from `backplate_guide`. `reference_images` are style or
+        content references. `mask` marks the region a generator must leave alone or repaint.
+        `metadata` travels to the worker untouched — scene id, camera profile, anything an
+        adapter wants to route on without this contract needing to know about it.
+        """
         raise NotImplementedError
 
 
@@ -74,6 +95,9 @@ class MockBackplateProvider(BackplateProvider):
         guide: Path | None = None,
         negative_prompt: str = "",
         seed: int | None = None,
+        reference_images: list[Path] | None = None,
+        mask: Path | None = None,
+        metadata: dict | None = None,
     ) -> dict:
         horizon = _horizon_from_guide(guide, height)
         image = Image.new("RGB", (width, height))
@@ -95,6 +119,7 @@ class MockBackplateProvider(BackplateProvider):
             "width": width,
             "height": height,
             "guide": guide.name if guide else None,
+            "metadata": metadata or {},
             "note": "Synthetic test backplate built to the camera contract; not AI generated.",
         }
 
@@ -157,6 +182,9 @@ class HTTPBackplateProvider(BackplateProvider):
         guide: Path | None = None,
         negative_prompt: str = "",
         seed: int | None = None,
+        reference_images: list[Path] | None = None,
+        mask: Path | None = None,
+        metadata: dict | None = None,
     ) -> dict:
         payload: dict = {
             "prompt": prompt,
@@ -167,6 +195,15 @@ class HTTPBackplateProvider(BackplateProvider):
         }
         if guide is not None and Path(guide).exists():
             payload["guide_png_base64"] = base64.b64encode(Path(guide).read_bytes()).decode("ascii")
+        if mask is not None and Path(mask).exists():
+            payload["mask_png_base64"] = base64.b64encode(Path(mask).read_bytes()).decode("ascii")
+        for reference in reference_images or []:
+            if Path(reference).exists():
+                payload.setdefault("reference_images_base64", []).append(
+                    base64.b64encode(Path(reference).read_bytes()).decode("ascii")
+                )
+        if metadata:
+            payload["metadata"] = metadata
 
         async with httpx.AsyncClient(timeout=900) as client:
             response = await client.post(f"{self.base_url}/generate", json=payload)
@@ -193,4 +230,11 @@ class HTTPBackplateProvider(BackplateProvider):
             "width": width,
             "height": height,
             "guideSent": "guide_png_base64" in payload,
+            "maskSent": "mask_png_base64" in payload,
+            "referenceImages": len(payload.get("reference_images_base64", [])),
         }
+
+
+# The name the wider architecture uses. Same class, so an adapter written against either is the
+# same adapter and `isinstance` works for both.
+PlateProvider = BackplateProvider

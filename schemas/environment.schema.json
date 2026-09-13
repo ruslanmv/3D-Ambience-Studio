@@ -69,13 +69,31 @@
       "description": "A flat image composed for one consuming runtime's camera. Unlike a panorama it is not reusable across arbitrary views: it is correct for the projection named in cameraContract and no other, which is why that field is required.",
       "type": "object", "additionalProperties": false, "required": ["type", "background", "cameraContract"],
       "properties": {
-        "type": {"const": "backplate"}, "background": {"type": "string"},
+        "type": {"enum": ["backplate", "plate"]}, "background": {"type": "string"},
         "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}, "bytes": {"type": "integer", "minimum": 0},
         "cameraContract": {
           "type": "object", "additionalProperties": false, "required": ["id", "profile"],
           "properties": {"id": {"type": "string"}, "runtime": {"type": "string"}, "profile": {"type": "string"}}
+        },
+        "fovY": {"description": "Vertical field of view in degrees, denormalised from the camera contract so a consumer can sanity-check a plate without resolving the contract.", "type": "number", "exclusiveMinimum": 0, "maximum": 179},
+        "avatarAnchor": {
+          "description": "Where the character stands, as frame fractions. feetY is the row the floor must be readable at.",
+          "type": "object", "additionalProperties": false, "required": ["x", "feetY"],
+          "properties": {"x": {"$ref": "#/$defs/fraction01"}, "feetY": {"$ref": "#/$defs/fraction01"}}
+        },
+        "safeZone": {
+          "description": "The band that must stay free of dominant foreground detail. Derived from the character's projected silhouette, so it is wider in portrait than in landscape.",
+          "type": "object", "additionalProperties": false, "required": ["xMin", "xMax", "yMin", "yMax"],
+          "properties": {
+            "xMin": {"$ref": "#/$defs/fraction01"}, "xMax": {"$ref": "#/$defs/fraction01"},
+            "yMin": {"$ref": "#/$defs/fraction01"}, "yMax": {"$ref": "#/$defs/fraction01"}
+          }
         }
       }
+    },
+    "fraction01": {
+      "description": "A position in the frame, 0..1, with y increasing downward.",
+      "type": "number", "minimum": 0, "maximum": 1
     },
     "panoramaVariant": {
       "type": "object", "additionalProperties": false, "required": ["type", "background"],

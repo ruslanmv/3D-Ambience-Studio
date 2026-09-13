@@ -82,7 +82,39 @@ the avatar; a painted shadow will not match where she is standing.
 | id | role |
 | --- | --- |
 | `mock-backplate` | Built-in. Draws sky and ground **to the guide's own horizon**, so it verifies the chain with no GPU and no network. Not AI generated, and the provenance says so. |
-| `backplate` | HTTP adapter to an external worker. |
+| `backplate` | Synchronous HTTP adapter to an external worker. |
+| `homepilot` | Asynchronous job API in front of cloud and local image models. |
+
+### On naming: plate and backplate
+
+`PlateProvider` and `BackplateProvider` are **the same class**, exported under both names, and
+the environment schema accepts `"type": "plate"` and `"type": "backplate"` alike.
+
+"Plate" is the standard term and what the wider architecture uses; "backplate" is what this
+code and its tests were written against. Renaming working code to match vocabulary is churn, and
+an alias costs one line. An adapter written against either name is the same adapter, and
+`isinstance` holds for both.
+
+### HomePilot
+
+Submit, poll, download — not one held-open request. Generation takes tens of seconds to minutes,
+and a request open that long dies to a proxy timeout somewhere in the middle with no way to
+recover the result.
+
+```
+POST {base}/v1/images/generate   → {job_id, status}
+GET  {base}/v1/jobs/{job_id}     → {status, assets: [{url, ...}], generation: {...}}
+```
+
+**Written against a stated contract, not a verified one.** The endpoints and field names come
+from the integration proposal rather than from reading a running HomePilot, so two things follow
+deliberately: the paths and keys are configurable, making a mismatch a settings change; and
+`provider`/`model` are passed through untouched with **no model identifier anywhere in the
+code**. A test asserts that last point, because model names change faster than adapters do and
+an adapter shipping a list of them would be wrong by the time somebody read it.
+
+An unknown job status is treated as *still running* rather than as a failure — a worker that
+invents a new in-progress name should slow us down, not fail the job.
 
 Worker contract:
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -281,3 +282,231 @@ def test_the_panorama_route_is_untouched(tmp_path):
     repo.save(project)
     assert workflow.optimize(project.id)["panorama"]["quest"]["width"] > 0
     assert workflow.validate(project.id)["valid"] is True
+
+
+class TestPlateCompatibility:
+    """The `plate` vocabulary, made compatible rather than renamed into.
+
+    "Plate" is the standard term and what the environment schema accepts; "backplate" is what
+    the working code and its tests are written against. Exporting both, as one class, costs a
+    line and avoids churning code that works.
+    """
+
+    def test_plate_provider_is_the_same_class(self):
+        from ambience.providers.backplate import BackplateProvider, PlateProvider
+
+        assert PlateProvider is BackplateProvider
+
+    def test_an_adapter_written_against_either_name_satisfies_both(self):
+        from ambience.providers.backplate import BackplateProvider, PlateProvider
+
+        assert issubclass(MockBackplateProvider, PlateProvider)
+        assert isinstance(MockBackplateProvider(), BackplateProvider)
+
+    def test_the_schema_accepts_both_spellings(self):
+        import jsonschema
+
+        schema = json.loads((ROOT / "schemas/environment.schema.json").read_text())
+        for spelling in ("backplate", "plate"):
+            manifest = {
+                "schemaVersion": 1,
+                "id": "x",
+                "version": "1.0.0",
+                "name": "X",
+                "category": "relax",
+                "preview": {"src": "p.webp"},
+                "variants": {
+                    "desktop": {
+                        "type": spelling,
+                        "background": "b.webp",
+                        "width": 1920,
+                        "height": 1080,
+                        "cameraContract": {"id": "avatar-chatbot", "profile": "landscape"},
+                        "fovY": 30,
+                        "avatarAnchor": {"x": 0.5, "feetY": 0.897},
+                        "safeZone": {"xMin": 0.398, "xMax": 0.602, "yMin": 0.158, "yMax": 0.897},
+                    },
+                    "quest": {"type": "panorama", "background": "q.webp"},
+                    "companion": {"type": "gradient"},
+                },
+                "lighting": {"preset": "n"},
+                "effects": [],
+            }
+            jsonschema.validate(manifest, schema)
+
+    def test_the_panorama_manifest_still_validates(self):
+        # The compatibility claim in one assertion: nothing about the existing format moved.
+        import jsonschema
+
+        schema = json.loads((ROOT / "schemas/environment.schema.json").read_text())
+        jsonschema.validate(json.loads((ROOT / "examples/sunset-beach/environment.json").read_text()), schema)
+
+    def test_the_wider_signature_is_optional_everywhere(self, tmp_path):
+        # reference_images, mask and metadata are in the ABC so that adding them later would not
+        # break third-party adapters. Every one must be omittable.
+        out = tmp_path / "b.png"
+        asyncio.run(MockBackplateProvider().generate(prompt="x", output=out, width=64, height=36))
+        assert out.exists()
+
+    def test_and_is_accepted_when_supplied(self, tmp_path):
+        out = tmp_path / "b.png"
+        provenance = asyncio.run(
+            MockBackplateProvider().generate(
+                prompt="x",
+                output=out,
+                width=64,
+                height=36,
+                reference_images=[],
+                mask=None,
+                metadata={"scene_id": "coastal-night", "profile": "mobile-fullbody-v1"},
+            )
+        )
+        assert provenance["metadata"]["scene_id"] == "coastal-night"
+
+
+class TestHomePilotAdapter:
+    """Written against a stated contract, not a running service — so the tests pin the shape.
+
+    What can be checked without HomePilot: that the request carries what the contract says, that
+    polling terminates on both outcomes and on a deadline, and that no model identifier is
+    hard-coded. Model names change faster than adapters do.
+    """
+
+    def test_it_hard_codes_no_model_names(self):
+        # Read the code, not the prose. The module docstring names FLUX and SDXL while
+        # *explaining* that neither is hard-coded, and an assertion over the raw text fails on
+        # the documentation — which is the fourth time that trap has caught this project.
+        source = (ROOT / "apps/api/ambience/providers/homepilot.py").read_text()
+        code = re.sub(r'"""[\s\S]*?"""', "", source)
+        code = re.sub(r"#.*$", "", code, flags=re.MULTILINE)
+        for invented in ("gpt-image", "flux", "sdxl", "dall-e", "stable-diffusion"):
+            assert invented not in code.lower(), f"{invented!r} should be configuration, not code"
+
+    def test_provider_and_model_are_configuration(self):
+        from ambience.providers.homepilot import HomePilotPlateProvider
+
+        provider = HomePilotPlateProvider("http://x", provider="openai", model="anything-at-all")
+        assert provider.provider == "openai"
+        assert provider.model == "anything-at-all"
+
+    def test_the_registry_exposes_it(self):
+        assert get_backplate_provider("homepilot") is not None
+
+    def test_it_submits_then_polls_then_downloads(self, tmp_path):
+        import httpx
+        from ambience.providers.homepilot import HomePilotPlateProvider
+
+        calls: list[str] = []
+        png = Image.new("RGB", (8, 8), (1, 2, 3))
+        buffer = tmp_path / "a.png"
+        png.save(buffer)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(f"{request.method} {request.url.path}")
+            if request.url.path.endswith("/v1/images/generate"):
+                return httpx.Response(200, json={"job_id": "img_1", "status": "queued"})
+            if request.url.path.endswith("/v1/jobs/img_1"):
+                # Running first, so the poll loop is genuinely exercised.
+                if calls.count("GET /v1/jobs/img_1") == 1:
+                    return httpx.Response(200, json={"status": "running"})
+                return httpx.Response(
+                    200,
+                    json={
+                        "status": "succeeded",
+                        "assets": [{"url": "/media/a.png", "width": 8, "height": 8}],
+                        "generation": {"provider": "local", "model": "whatever"},
+                    },
+                )
+            return httpx.Response(200, content=buffer.read_bytes(), headers={"content-type": "image/png"})
+
+        provider = HomePilotPlateProvider("http://homepilot", poll_seconds=0)
+        out = tmp_path / "plate.png"
+
+        async def run():
+            transport = httpx.MockTransport(handler)
+            original = httpx.AsyncClient
+
+            class Patched(original):
+                def __init__(self, *args, **kwargs):
+                    kwargs["transport"] = transport
+                    super().__init__(*args, **kwargs)
+
+            httpx.AsyncClient = Patched
+            try:
+                return await provider.generate(prompt="p", output=out, width=8, height=8)
+            finally:
+                httpx.AsyncClient = original
+
+        provenance = asyncio.run(run())
+        assert out.exists()
+        assert calls[0] == "POST /v1/images/generate"
+        assert calls.count("GET /v1/jobs/img_1") == 2, "it must poll until the job leaves 'running'"
+        # A relative /media path is the documented shape and has to resolve against the base.
+        assert calls[-1] == "GET /media/a.png"
+        assert provenance["jobId"] == "img_1"
+        assert provenance["routedProvider"] == "local"
+
+    def test_a_failed_job_raises_with_the_reason(self, tmp_path):
+        import httpx
+        from ambience.providers.homepilot import HomePilotPlateProvider
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/v1/images/generate"):
+                return httpx.Response(200, json={"job_id": "j", "status": "queued"})
+            return httpx.Response(200, json={"status": "failed", "error": "out of memory"})
+
+        provider = HomePilotPlateProvider("http://homepilot", poll_seconds=0)
+
+        async def run():
+            transport = httpx.MockTransport(handler)
+            original = httpx.AsyncClient
+
+            class Patched(original):
+                def __init__(self, *args, **kwargs):
+                    kwargs["transport"] = transport
+                    super().__init__(*args, **kwargs)
+
+            httpx.AsyncClient = Patched
+            try:
+                return await provider.generate(prompt="p", output=tmp_path / "x.png", width=8, height=8)
+            finally:
+                httpx.AsyncClient = original
+
+        with pytest.raises(RuntimeError, match="out of memory"):
+            asyncio.run(run())
+
+    def test_an_endless_job_times_out_rather_than_hanging(self, tmp_path):
+        import httpx
+        from ambience.providers.homepilot import HomePilotPlateProvider
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/v1/images/generate"):
+                return httpx.Response(200, json={"job_id": "j", "status": "queued"})
+            return httpx.Response(200, json={"status": "running"})
+
+        provider = HomePilotPlateProvider("http://homepilot", poll_seconds=0, timeout_seconds=0)
+
+        async def run():
+            transport = httpx.MockTransport(handler)
+            original = httpx.AsyncClient
+
+            class Patched(original):
+                def __init__(self, *args, **kwargs):
+                    kwargs["transport"] = transport
+                    super().__init__(*args, **kwargs)
+
+            httpx.AsyncClient = Patched
+            try:
+                return await provider.generate(prompt="p", output=tmp_path / "x.png", width=8, height=8)
+            finally:
+                httpx.AsyncClient = original
+
+        with pytest.raises(TimeoutError):
+            asyncio.run(run())
+
+    def test_an_unknown_status_is_treated_as_still_running(self):
+        # A worker inventing a new in-progress name should slow us down, not fail the job.
+        from ambience.providers.homepilot import _FAILURE, _SUCCESS
+
+        assert "queued" not in _SUCCESS and "queued" not in _FAILURE
+        assert "running" not in _SUCCESS and "running" not in _FAILURE

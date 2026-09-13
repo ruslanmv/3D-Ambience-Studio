@@ -1,5 +1,6 @@
 from ..config import settings
 from .backplate import HTTPBackplateProvider, MockBackplateProvider
+from .homepilot import HomePilotPlateProvider
 from .http import HTTPPanoramaProvider
 from .mock import MockPanoramaProvider
 
@@ -33,6 +34,14 @@ def get_backplate_provider(name: str):
     providers = {
         "mock-backplate": MockBackplateProvider(),
         "backplate": HTTPBackplateProvider("backplate", settings.backplate_url),
+        # HomePilot as the inference layer: one interface in front of cloud image APIs and local
+        # ComfyUI graphs alike. provider/model are its routing keys and are configuration, not
+        # constants — model names change faster than adapters do.
+        "homepilot": HomePilotPlateProvider(
+            settings.homepilot_url,
+            provider=settings.homepilot_image_provider,
+            model=settings.homepilot_image_model,
+        ),
     }
     if name not in providers:
         raise KeyError(f"Unknown backplate provider: {name}")
@@ -52,5 +61,14 @@ def backplate_provider_summary() -> list[dict]:
             "enabled": True,
             "role": "backplate",
             "notes": "External HTTP worker. Sends the guide image as a spatial condition; a worker may ignore it.",
+        },
+        {
+            "id": "homepilot",
+            "enabled": True,
+            "role": "inference-layer",
+            "notes": (
+                "Asynchronous job API in front of cloud and local image models. "
+                "Written against the stated contract; endpoints and model ids are configurable."
+            ),
         },
     ]
