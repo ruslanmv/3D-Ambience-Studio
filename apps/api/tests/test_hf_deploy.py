@@ -144,7 +144,7 @@ def test_tree_carries_the_camera_contracts(deploy_tree):
 
 def test_tree_omits_build_output_and_caches(deploy_tree):
     """Hugging Face rejects large un-LFS'd blobs, and stale build output is worse than none."""
-    for unwanted in ("apps/web/node_modules", "apps/web/dist", "data"):
+    for unwanted in ("apps/web/node_modules", "apps/web/dist", "data", "apps/api/tests"):
         assert not (deploy_tree / unwanted).exists(), f"{unwanted} must not be pushed to the Space."
     assert not list(deploy_tree.rglob("__pycache__"))
     assert not list(deploy_tree.rglob("*.pyc"))

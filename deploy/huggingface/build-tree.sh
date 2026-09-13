@@ -51,6 +51,13 @@ cp -R examples "$TARGET/examples"                   # camera contracts; the plat
 # enormous and full of platform-specific binaries that Hugging Face would reject as un-LFS'd
 # blobs. The image rebuilds all of it.
 rm -rf "$TARGET/apps/web/node_modules" "$TARGET/apps/web/dist"
+# The Space runs the app, it does not check it. The tests are also the one part of the tree that
+# would fail if anybody did run them there, since they look for repository directories the deploy
+# tree deliberately omits.
+rm -rf "$TARGET/apps/api/tests"
+# The development Dockerfiles (API on 8000, Vite on 5173). Next to the Space's own Dockerfile they
+# are three files describing three different ways to start, two of which do not apply here.
+rm -f "$TARGET/apps/api/Dockerfile" "$TARGET/apps/web/Dockerfile"
 find "$TARGET" -name '__pycache__' -type d -prune -exec rm -rf {} +
 find "$TARGET" -name '*.py[cod]' -delete
 find "$TARGET" -name '.pytest_cache' -type d -prune -exec rm -rf {} +
