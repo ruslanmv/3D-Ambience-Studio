@@ -510,3 +510,90 @@ class TestHomePilotAdapter:
 
         assert "queued" not in _SUCCESS and "queued" not in _FAILURE
         assert "running" not in _SUCCESS and "running" not in _FAILURE
+
+
+MARKETING_CONTRACT = ROOT / "examples/backplate-camera/yourfriend-marketing-hero.json"
+
+
+class TestMarketingHeroContract:
+    """A second consuming runtime, with a composition that shares nothing with the first.
+
+    3D-Avatar-Chatbot centres its avatar in a viewport the user controls. The YourFriend marketing
+    site puts her in the right column of a two-column hero and composites a headline over the left
+    half. If the contract were really a description of "the camera", one would do for both; these
+    tests exist to pin that it is a description of *a composition*, and that the Studio can generate
+    against more than one.
+    """
+
+    @pytest.fixture
+    def marketing(self):
+        return load_contract(MARKETING_CONTRACT)
+
+    def test_the_marketing_contract_loads_and_carries_both_profiles(self, marketing):
+        assert marketing["id"] == "yourfriend-marketing-hero-v1"
+        assert marketing["runtime"] == "yourfriend"
+        assert set(marketing["profiles"]) == {"landscape", "portrait"}
+
+    def test_it_is_generated_from_the_site_rather_than_written_here(self, marketing):
+        # If this ever becomes a hand-maintained file it will drift from the page it describes and
+        # nothing will say so, because the art still generates — it just stops fitting.
+        assert marketing["sourceOfTruth"] == "src/config/heroCalibration.ts"
+        assert marketing["generatedBy"].endswith("export-camera-contract.ts")
+
+    def test_the_avatar_is_off_centre_here_unlike_the_chatbot(self, marketing):
+        chatbot = get_profile(load_contract(CONTRACT), "landscape")
+        hero = get_profile(marketing, "landscape")
+        assert chatbot["footAnchor"]["x"] == pytest.approx(0.5, abs=0.01)
+        assert hero["footAnchor"]["x"] > 0.65
+        # And the keep-clear box follows her rather than sitting mid-frame.
+        assert hero["safeZone"]["x0"] > 0.5
+
+    def test_the_two_profiles_nearly_agree_about_the_camera_height(self, marketing):
+        """The two plates have to read as one place photographed twice, not as two places.
+
+        The heights are solved independently, from two different sets of measurements taken at two
+        different layouts, so they are not forced to agree — and they do not exactly: about 0.865 m
+        against 0.851 m, a centimetre and a half apart, because the mobile hero frames her slightly
+        differently. Fourteen millimetres of camera height is not a difference anyone can see.
+
+        An earlier version of the exporter made these agree to four decimal places, which looked
+        like a strong result and was an artifact: it read the camera height straight off the image
+        as if the projection were linear, and the same wrong assumption applied to both profiles
+        produced the same wrong answer twice. The tolerance here is loose on purpose, so a real
+        drift is caught and a spurious agreement is not mistaken for one.
+        """
+        landscape = get_profile(marketing, "landscape")
+        portrait = get_profile(marketing, "portrait")
+        assert landscape["eyeHeightMetres"] == pytest.approx(portrait["eyeHeightMetres"], abs=0.02)
+        assert landscape["cameraDistanceMetres"] == pytest.approx(portrait["cameraDistanceMetres"], abs=0.01)
+
+    def test_every_ground_line_lands_inside_the_frame_and_below_the_horizon(self, marketing):
+        # Ground cannot appear above the horizon, and a row past 1.0 is drawn off-canvas by the
+        # guide renderer — a contract nobody can check by looking at it.
+        for name in ("landscape", "portrait"):
+            profile = get_profile(marketing, name)
+            for line in profile["groundLines"]:
+                assert profile["horizonY"] < line["y"] <= 1.0, (name, line)
+
+    def test_the_guide_draws_the_quiet_zones(self, marketing):
+        profile = get_profile(marketing, "landscape")
+        assert profile["quietZones"], "the marketing profile must publish where type sits"
+        with_zones = render_guide(profile, labels=False)
+        without = dict(profile)
+        without.pop("quietZones")
+        assert render_guide(without, labels=False).tobytes() != with_zones.tobytes()
+
+    def test_the_prompt_asks_for_low_contrast_rather_than_emptiness_in_a_quiet_zone(self, marketing):
+        # "Keep this area clear" gets an empty area with a hard-edged cloud bank in it, which is
+        # exactly as unreadable behind display type as a shoreline would have been.
+        prompt = build_prompt(get_profile(marketing, "landscape"), "A quiet shore.")
+        assert "low-contrast" in prompt
+        assert "no detail or hard edges" in prompt
+
+    def test_a_contract_without_quiet_zones_still_works(self):
+        # The chatbot renders nothing over its backplate and publishes none; quietZones is optional
+        # and its absence must not change a single pixel of that runtime's guide.
+        profile = get_profile(load_contract(CONTRACT), "landscape")
+        assert "quietZones" not in profile
+        render_guide(profile)
+        assert "low-contrast" not in build_prompt(profile, "A quiet shore.")
