@@ -76,6 +76,48 @@ And the checks that would otherwise fail in a Space build log:
 pytest apps/api/tests/test_hf_deploy.py -q
 ```
 
+## Image generation on a Space
+
+A Space that has a Hugging Face token already has an image generator, so that is what it defaults
+to: with `HF_TOKEN` set and nothing stored, the Studio starts on the **Hugging Face** provider with
+`black-forest-labs/FLUX.1-schnell`, and draws through Hugging Face Inference Providers — no GPU, no
+worker, no second account.
+
+Set `HF_TOKEN` as a Space **secret** (Settings → Variables and secrets → New secret). The token
+needs the fine-grained permission **"Make calls to Inference Providers"**; without it the model
+list still loads, so the panel looks configured, and generation fails with
+`403 … does not have sufficient permissions to call Inference Providers`. TEST CONNECTION reports
+that verbatim.
+
+The same mechanism covers the other providers — `OPENAI_API_KEY`, `GEMINI_API_KEY`,
+`OLLABRIDGE_TOKEN`, `HOMEPILOT_TOKEN`. A credential in the environment always wins over one stored
+in the settings file, never passes through the browser and is never written to disk. The panel
+shows `● Configured by deployment` in place of the key field.
+
+## The settings panel is read-only on a Space
+
+Detected from `SPACE_ID`, which Hugging Face sets for every Space container. Writes to the settings
+endpoints are refused with 403 and the panel renders disabled with the reason shown.
+
+This is not only about a surprise bill. A writable base URL on a public instance is a
+credential-exfiltration route: point the provider at a host you control and the deployment's own key
+arrives in your logs on the next generate.
+
+Configure a locked Space with variables instead:
+
+| Variable                   | Example                            |
+| -------------------------- | ---------------------------------- |
+| `AMBIENCE_IMAGE_PROVIDER`  | `huggingface`                      |
+| `AMBIENCE_IMAGE_MODEL`     | `Qwen/Qwen-Image`                  |
+| `AMBIENCE_HF_ROUTING`      | `auto`, `fal-ai`, `replicate`, …   |
+| `AMBIENCE_HF_USE_GUIDE`    | `1` to condition on the camera guide (image-to-image models only) |
+
+Running a private Space and want the panel back? Set `AMBIENCE_SETTINGS_LOCKED=0`.
+
+What the lock does **not** do is make generation free. Anyone who can open a public Space can spend
+its credits by using it — that is the app working as intended. If that matters, make the Space
+private, or leave the mock provider selected.
+
 ## Space configuration
 
 | Variable                   | Default                     | Why you would change it                                |
@@ -88,11 +130,10 @@ Set them as Space **variables** (not secrets) under the Space's Settings.
 
 ## Two things the Space cannot do that a desk install can
 
-**There are no user accounts.** Everyone who can open the Space shares one configuration. A key
-entered in SYSTEM CONFIGURATION is stored in the container and spent by any visitor's generate
-request; a paired OllaBridge device is paired for all of them. `generation_settings` redacts keys
-on read, so nobody can *see* the key — they can still *use* it. Configure credentials only in a
-private Space; in a public one, leave the mock provider selected.
+**There are no user accounts.** Everyone who can open the Space shares one configuration and one
+billing account. That is why the panel is read-only there and credentials come from secrets — see
+the two sections above — and it is still true of generation itself: a visitor who uses the wizard
+spends the deployer's credits.
 
 **A local OllaBridge is unreachable.** The `local-trust` route assumes the bridge is on the same
 machine as the Studio. From a Space, `http://localhost:11434` is the Space's own container. Use

@@ -37,18 +37,23 @@ The five steps of the wizard: **Describe → Target → Review prompt → Genera
 shows the full prompt and negative prompt before anything is generated, because a hidden prompt is
 one nobody can debug when a result surprises them.
 
-## Configure a provider before generating
+## Where the images come from
 
-Open **SYSTEM CONFIGURATION** and choose where images come from: OpenAI, OllaBridge Cloud,
-a local OllaBridge, HomePilot, or the built-in mock. Only the mock works with no credentials — it
-draws sky and ground to the contract's horizon, which is enough to prove the pipeline end to end
-but is not art.
+**Hugging Face Inference Providers**, by default, using this Space's own `HF_TOKEN` secret. One
+token routed to fal.ai, Replicate, Together, Nscale or HF's own stack; the default model is
+`black-forest-labs/FLUX.1-schnell`, whose weights are Apache-2.0. No GPU runs in this Space — it is
+CPU-basic and calls out.
 
-> **This Space has no user accounts.** Anything you configure here is configured for everyone who
-> can open it: an API key entered in the panel is stored in the container and used by any
-> visitor's generate request, and a paired OllaBridge device is paired for all of them. The panel
-> never displays a stored key, but it will happily spend it. **Set credentials only in a private
-> Space**, or leave the mock provider selected in a public one.
+The panel also offers OpenAI, Gemini, OllaBridge (cloud or local), HomePilot and a built-in mock,
+which needs no credentials at all and draws sky and ground to the contract's horizon: enough to
+prove the pipeline end to end, not art.
+
+> **SYSTEM CONFIGURATION is read-only here, on purpose.** A Space has no user accounts: everyone
+> who opens it shares one configuration and one billing account. So the provider and its credential
+> come from Space secrets and variables set by whoever deployed it, and no visitor can repoint them
+> — which would be a way to spend someone else's credits, and a way to send their key to a host of
+> your choosing. Using the wizard still spends the deployer's credits; a public Space that cares
+> should leave the mock selected.
 
 ## Persistence
 

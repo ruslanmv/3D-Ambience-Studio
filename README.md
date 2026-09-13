@@ -134,9 +134,13 @@ bash deploy/huggingface/build-tree.sh /tmp/space   # exactly what gets pushed
 docker build -t ambience-space /tmp/space && docker run --rm -p 7860:7860 ambience-space
 ```
 
+A hosted Space draws with **Hugging Face Inference Providers** by default — one `HF_TOKEN` secret
+routed to fal.ai, Replicate, Together, Nscale or HF's own stack, with no GPU in the Space — and its
+SYSTEM CONFIGURATION panel is read-only, because everyone who opens a Space shares one
+configuration and one billing account.
+
 Set the `HF_TOKEN`, `HF_USERNAME` and `SPACE_NAME` repository secrets first. See
-`deploy/huggingface/DEPLOY.md` — in particular the note that a Space has no user accounts, so
-credentials entered in SYSTEM CONFIGURATION are shared by everyone who can open it.
+`deploy/huggingface/DEPLOY.md` for the Space secrets and variables that configure it.
 
 ## Repository layout
 

@@ -20,9 +20,15 @@ export type ProviderSpec = {
     icon: string;
     kind: string;
     defaultBaseUrl: string;
+    defaultModel?: string;
     auth: string[];
+    envVar?: string;
     supportsGuideImage: boolean;
     notes: string;
+    /** Hugging Face only: the inference companies its router can send a request to. */
+    routing?: string[];
+    /** Hugging Face only: an openly-licensed shortlist, with the licence each was chosen for. */
+    suggestedModels?: { id: string; licence: string; role: string }[];
 };
 
 type Stored = {
@@ -33,6 +39,16 @@ type Stored = {
     device_id: string;
     has_api_key: boolean;
     has_pair_token: boolean;
+    hf_routing: string;
+    hf_use_guide: boolean;
+    /** Where the credential comes from — never what it is. */
+    credential_source: 'environment' | 'stored' | 'none';
+    env_var: string;
+    has_credential: boolean;
+    /** True on a shared deployment, where the configuration belongs to whoever deployed it. */
+    locked: boolean;
+    lock_reason: string;
+    hosted_space: boolean;
 };
 
 const AUTH_LABEL: Record<string, string> = {
@@ -120,6 +136,17 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                 </div>
             )}
 
+            {stored.locked && (
+                <div className="notice info" role="status">
+                    <strong>🔒 Configured by the deployment.</strong> {stored.lock_reason} Everything below
+                    is shown read-only. To change it, set the Space secrets and variables described in{' '}
+                    <code>deploy/huggingface/DEPLOY.md</code>.
+                </div>
+            )}
+
+            {/* One fieldset rather than a disabled prop on each control: a new field added later is
+                read-only by default instead of by remembering. */}
+            <fieldset className="config-form" disabled={stored.locked}>
             <h3 className="config-title">Image provider</h3>
             <div className="card-grid">
                 {specs.map((s) => (
@@ -167,7 +194,29 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                 </label>
             )}
 
-            {stored.auth_mode !== 'local-trust' && stored.auth_mode !== 'pairing' && (
+            {stored.credential_source === 'environment' && (
+                <div className="field">
+                    <span className="field-label">Credential</span>
+                    <div className="paired">
+                        <div>
+                            <div className="paired-ok">● Configured by deployment</div>
+                            <div className="paired-device">
+                                {stored.hosted_space ? 'Space Secret' : 'Environment variable'}:{' '}
+                                <code>{stored.env_var}</code>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="hint">
+                        Read from the environment, not from this panel — it never passes through the browser
+                        and is not written to the settings file. A key typed here would be ignored while it
+                        is set.
+                    </p>
+                </div>
+            )}
+
+            {stored.credential_source !== 'environment' &&
+                stored.auth_mode !== 'local-trust' &&
+                stored.auth_mode !== 'pairing' && (
                 <label className="field">
                     <span className="field-label">
                         API key {stored.has_api_key && <span className="badge">stored</span>}
@@ -181,7 +230,7 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                     />
                     <p className="hint">Stored on this machine. Never returned by the API once saved.</p>
                 </label>
-            )}
+                )}
 
             {stored.auth_mode === 'pairing' && (
                 <div className="field">
@@ -235,7 +284,10 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                 </div>
             )}
 
-            <label className="field">
+            {/* Not shown for Hugging Face: its adapter talks to the router through the official
+                client and never reads a base URL, so an editable field here would be a control
+                that silently does nothing. The router's address is in the provider note instead. */}
+            <label className="field" hidden={spec?.kind === 'huggingface'}>
                 <span className="field-label">Base URL (root only, no /v1)</span>
                 <input
                     type="text"
@@ -245,6 +297,45 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                     onBlur={(e) => e.target.value !== stored.base_url && patch({ base_url: e.target.value })}
                 />
             </label>
+
+            {spec?.kind === 'huggingface' && (
+                <>
+                    <label className="field">
+                        <span className="field-label">Routing</span>
+                        <select
+                            value={stored.hf_routing}
+                            onChange={(e) => patch({ hf_routing: e.target.value })}
+                        >
+                            {(spec.routing ?? ['auto']).map((r) => (
+                                <option key={r} value={r}>
+                                    {r === 'auto' ? 'Automatic (recommended)' : r}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="hint">
+                            One token, several inference companies. Automatic lets Hugging Face choose and
+                            fail over; pin one when a model is known to behave better there.
+                        </p>
+                    </label>
+
+                    <label className="field">
+                        <span className="field-label">Send the camera guide as an image</span>
+                        <div className="switch-row">
+                            <input
+                                type="checkbox"
+                                checked={stored.hf_use_guide}
+                                onChange={(e) => patch({ hf_use_guide: e.target.checked })}
+                            />
+                            <span className="hint">
+                                Uses image-to-image so the horizon and keep-clear band are a real spatial
+                                condition rather than a sentence. Only some model and routing combinations
+                                support it — when one does not, generation fails with that reason rather
+                                than quietly producing an unconditioned plate.
+                            </span>
+                        </div>
+                    </label>
+                </>
+            )}
 
             <label className="field">
                 <span className="field-label">Model</span>
@@ -256,9 +347,18 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                                 {m}
                             </option>
                         ))}
-                        {stored.model && !models.includes(stored.model) && (
-                            <option value={stored.model}>{stored.model}</option>
-                        )}
+                        {(spec?.suggestedModels ?? [])
+                            .filter((m) => !models.includes(m.id))
+                            .map((m) => (
+                                <option key={m.id} value={m.id}>
+                                    {m.id} — {m.role}, {m.licence}
+                                </option>
+                            ))}
+                        {stored.model &&
+                            !models.includes(stored.model) &&
+                            !(spec?.suggestedModels ?? []).some((m) => m.id === stored.model) && (
+                                <option value={stored.model}>{stored.model}</option>
+                            )}
                     </select>
                     <button
                         disabled={!!busy}
@@ -276,8 +376,13 @@ export default function Settings({ onSaved }: { onSaved?: (s: Stored) => void })
                 </div>
                 <p className="hint">
                     Model ids are configuration, never hard-coded — set whichever your account or bridge has.
+                    {spec?.kind === 'huggingface' &&
+                        ' The shortlist is Apache-2.0 weights, usable commercially; “Fetch Models” lists' +
+                        ' everything the router can serve, including models whose licences are not.'}
                 </p>
             </label>
+
+            </fieldset>
 
             <div className="field">
                 <button

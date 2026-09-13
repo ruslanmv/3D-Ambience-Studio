@@ -1,6 +1,7 @@
 from ..config import settings
 from .backplate import HTTPBackplateProvider, MockBackplateProvider
 from .homepilot import HomePilotPlateProvider
+from .huggingface import HuggingFacePlateProvider
 from .http import HTTPPanoramaProvider
 from .mock import MockPanoramaProvider
 from .openai_images import OpenAICompatibleImageProvider
@@ -82,15 +83,23 @@ def provider_from_settings(config: dict):
     the test-connection endpoint and the generate endpoint cannot disagree about what
     `provider: "ollabridge"` means.
     """
-    from ..services.generation_settings import provider_spec
+    from ..services.generation_settings import credential_for, provider_spec
 
     spec = provider_spec(config["provider"])
     kind = spec["kind"]
     auth_mode = config.get("auth_mode", "apikey")
-    # Pairing and API-key modes both end up as a Bearer token; which field holds it is the
-    # only difference, and the adapter should not have to know that.
-    credential = config.get("pair_token") if auth_mode == "pairing" else config.get("api_key")
+    # Pairing and API-key modes both end up as a Bearer token, and a deployment can supply it
+    # from the environment instead of the settings file. Resolving all three in one place is what
+    # lets a Hugging Face Space authenticate from a Space Secret with nothing stored at all.
+    credential, _source = credential_for(config)
 
+    if kind == "huggingface":
+        return HuggingFacePlateProvider(
+            credential,
+            model=config.get("model", ""),
+            routing=config.get("hf_routing", "auto"),
+            use_guide=bool(config.get("hf_use_guide")),
+        )
     if kind == "mock":
         return MockBackplateProvider()
     if kind == "openai-compatible":

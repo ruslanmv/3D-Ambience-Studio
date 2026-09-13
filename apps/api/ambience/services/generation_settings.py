@@ -22,17 +22,42 @@ exists so the read endpoint never hands a key back over HTTP; the value is only 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from ..config import settings as app_settings
+from ..providers.huggingface import ROUTING as HF_ROUTING
+from ..providers.huggingface import SUGGESTED_MODELS as HF_SUGGESTED_MODELS
 
 #: Every provider the Studio can draw with. `kind` is what actually varies: three of these speak
 #: the same OpenAI-compatible wire format and differ only in base URL and credential, which is
 #: why one adapter serves them.
 PROVIDERS: list[dict[str, Any]] = [
     {
+        "id": "huggingface",
+        "label": "Hugging Face",
+        "icon": "🤗",
+        "kind": "huggingface",
+        "defaultBaseUrl": "https://router.huggingface.co",
+        "defaultModel": "black-forest-labs/FLUX.1-schnell",
+        "auth": ["apikey"],
+        "envVar": "HF_TOKEN",
+        "supportsGuideImage": True,
+        # Rendered by the panel as the routing radio group and the model shortlist. Taken from the
+        # adapter rather than restated here, so the two cannot disagree about what routing values
+        # are legal.
+        "routing": HF_ROUTING,
+        "suggestedModels": HF_SUGGESTED_MODELS,
+        "notes": (
+            "Inference Providers: one token routed to fal.ai, Replicate, Together, Nscale or HF's "
+            "own stack. Open-weight models, no GPU to run. The guide can be sent as a real spatial "
+            "condition, but only on an image-to-image model."
+        ),
+    },
+    {
         "id": "openai",
+        "envVar": "OPENAI_API_KEY",
         "label": "OpenAI",
         "icon": "🤖",
         "kind": "openai-compatible",
@@ -43,6 +68,7 @@ PROVIDERS: list[dict[str, Any]] = [
     },
     {
         "id": "gemini",
+        "envVar": "GEMINI_API_KEY",
         "label": "Gemini",
         "icon": "💎",
         "kind": "gemini",
@@ -53,6 +79,7 @@ PROVIDERS: list[dict[str, Any]] = [
     },
     {
         "id": "ollabridge",
+        "envVar": "OLLABRIDGE_TOKEN",
         "label": "OllaBridge",
         "icon": "🌉",
         "kind": "openai-compatible",
@@ -63,6 +90,7 @@ PROVIDERS: list[dict[str, Any]] = [
     },
     {
         "id": "ollabridge-local",
+        "envVar": "OLLABRIDGE_LOCAL_TOKEN",
         "label": "OllaBridge Local",
         "icon": "🏠",
         "kind": "openai-compatible",
@@ -73,6 +101,7 @@ PROVIDERS: list[dict[str, Any]] = [
     },
     {
         "id": "homepilot",
+        "envVar": "HOMEPILOT_TOKEN",
         "label": "HomePilot",
         "icon": "🚀",
         "kind": "homepilot",
@@ -83,6 +112,7 @@ PROVIDERS: list[dict[str, Any]] = [
     },
     {
         "id": "mock-backplate",
+        "envVar": "",
         "label": "Mock",
         "icon": "○",
         "kind": "mock",
@@ -104,6 +134,11 @@ DEFAULTS: dict[str, Any] = {
     "device_id": "",
     "base_url": "",
     "model": "",
+    # Hugging Face routes one request to several inference companies; "auto" lets it choose and
+    # fail over. Sending the guide as an actual image is off by default because only some
+    # provider/model pairs implement image-to-image — see providers/huggingface.py.
+    "hf_routing": "auto",
+    "hf_use_guide": False,
 }
 
 #: Never returned over HTTP. Written only.
@@ -117,6 +152,110 @@ def provider_spec(provider_id: str) -> dict[str, Any]:
     raise KeyError(f"Unknown image provider: {provider_id}")
 
 
+# ── The deployment layer ─────────────────────────────────────────────────────────────────────
+#
+# Everything above is a desk tool's settings: one operator, one machine, a JSON file. A Hugging
+# Face Space is neither — it is a shared, usually public URL where every visitor shares one
+# configuration and one billing account. Two things follow, and both are handled here rather than
+# in the API so the CLI and the tests see the same rules.
+#
+# Credentials come from the environment first. A Space Secret is the deployment's credential:
+# it never passes through the browser, never lands in the settings file, and cannot be read back
+# out by a visitor. The stored key stays as the desk-install path.
+#
+# And in a shared deployment the settings are read-only. Otherwise any visitor could point the
+# backend at an expensive model and spend the deployer's credits, or repoint a provider's base
+# URL at a host of their choosing — a credential-exfiltration route, not merely a billing one.
+
+
+def _env(name: str) -> str:
+    return (os.environ.get(name) or "").strip()
+
+
+def is_hosted_space() -> bool:
+    """True inside a Hugging Face Space, which sets SPACE_ID for every container it runs."""
+    return bool(_env("SPACE_ID"))
+
+
+def deployment() -> dict[str, Any]:
+    """Whether this instance is shared, and therefore whether its settings are writable.
+
+    AMBIENCE_SETTINGS_LOCKED decides it when set — "0" or "false" unlocks a Space for someone
+    running a private one who wants the panel back. Otherwise a Space is locked and a desk
+    install is not, which is the safe default in both directions.
+    """
+    override = _env("AMBIENCE_SETTINGS_LOCKED").lower()
+    if override in {"0", "false", "no"}:
+        return {"locked": False, "reason": "", "space": is_hosted_space()}
+    if override in {"1", "true", "yes"}:
+        return {
+            "locked": True,
+            "reason": "This deployment's image generation is configured by its operator (AMBIENCE_SETTINGS_LOCKED).",
+            "space": is_hosted_space(),
+        }
+    if is_hosted_space():
+        return {
+            "locked": True,
+            "reason": (
+                "Running as a hosted Space, where everyone shares one configuration and one "
+                "billing account. The operator sets the provider and its credential as Space "
+                "secrets and variables."
+            ),
+            "space": True,
+        }
+    return {"locked": False, "reason": "", "space": False}
+
+
+def credential_for(data: dict[str, Any]) -> tuple[str, str]:
+    """The credential to authenticate with, and where it came from.
+
+    Environment first, then the stored field for the mode in use. Which stored field that is —
+    `pair_token` in pairing mode, `api_key` otherwise — is the only difference between the two
+    modes, and no adapter should have to know it.
+    """
+    try:
+        spec = provider_spec(data.get("provider", ""))
+    except KeyError:
+        spec = {}
+    from_env = _env(spec.get("envVar", "")) if spec.get("envVar") else ""
+    if from_env:
+        return from_env, "environment"
+    stored = data.get("pair_token") if data.get("auth_mode") == "pairing" else data.get("api_key")
+    stored = str(stored or "").strip()
+    return stored, "stored" if stored else "none"
+
+
+def _deployment_overrides() -> dict[str, Any]:
+    """What the operator has insisted on, which the panel cannot overrule.
+
+    Separate from the defaults below: these win over anything stored, because they are how a
+    locked deployment is configured at all.
+    """
+    out: dict[str, Any] = {}
+    if _env("AMBIENCE_IMAGE_PROVIDER") in PROVIDER_IDS:
+        out["provider"] = _env("AMBIENCE_IMAGE_PROVIDER")
+    if _env("AMBIENCE_IMAGE_MODEL"):
+        out["model"] = _env("AMBIENCE_IMAGE_MODEL")
+    if _env("AMBIENCE_HF_ROUTING"):
+        out["hf_routing"] = _env("AMBIENCE_HF_ROUTING")
+    if _env("AMBIENCE_HF_USE_GUIDE").lower() in {"1", "true", "yes"}:
+        out["hf_use_guide"] = True
+    return out
+
+
+def _deployment_defaults() -> dict[str, Any]:
+    """What to start from when nothing is stored yet.
+
+    A Space with an HF token should draw with Hugging Face out of the box rather than with the
+    mock: the credential is already there, the models are open-weight, and asking someone to
+    configure a provider on a locked panel would be a dead end. It is only a default — a stored
+    choice still wins, as does an explicit override.
+    """
+    if _env("HF_TOKEN") or _env("HUGGING_FACE_HUB_TOKEN") or is_hosted_space():
+        return {"provider": "huggingface", "auth_mode": "apikey"}
+    return {}
+
+
 def _path() -> Path:
     return app_settings.data_dir / "generation-settings.json"
 
@@ -128,6 +267,7 @@ def load() -> dict[str, Any]:
     when a field is added — the alternative is a KeyError on somebody's machine months later.
     """
     data = dict(DEFAULTS)
+    data.update(_deployment_defaults())
     path = _path()
     if path.exists():
         try:
@@ -138,11 +278,18 @@ def load() -> dict[str, Any]:
             # A corrupt settings file should not stop the Studio starting. Defaults are a
             # working configuration; the mock provider needs nothing.
             pass
+    data.update(_deployment_overrides())
+    try:
+        spec = provider_spec(data["provider"])
+    except KeyError:
+        spec = {}
     if not data.get("base_url"):
-        try:
-            data["base_url"] = provider_spec(data["provider"])["defaultBaseUrl"]
-        except KeyError:
-            data["base_url"] = ""
+        data["base_url"] = spec.get("defaultBaseUrl", "")
+    if not data.get("model"):
+        # A provider with no usable model is a generate button that fails; Hugging Face needs one
+        # named. Derived on read so a deployment that has never been configured — no settings
+        # file at all — still has something to generate with.
+        data["model"] = spec.get("defaultModel", "")
     return data
 
 
@@ -169,6 +316,12 @@ def save(patch: dict[str, Any]) -> dict[str, Any]:
                 # switching from OllaBridge to OpenAI does not silently keep pointing at the
                 # bridge.
                 data["base_url"] = spec["defaultBaseUrl"]
+            if not (patch or {}).get("model"):
+                # And its own model. A model id is provider-specific — "gpt-image-1" means
+                # nothing to Hugging Face's router and a Hub repo id means nothing to OpenAI —
+                # so carrying one across a switch guarantees a failing generate. Empty is then
+                # filled from the new provider's default by load().
+                data["model"] = spec.get("defaultModel", "")
             if not (patch or {}).get("auth_mode"):
                 # And its own preferred auth mode — always, not only when the carried-over one
                 # is invalid.
@@ -201,4 +354,18 @@ def redact(data: dict[str, Any]) -> dict[str, Any]:
     out = {k: v for k, v in data.items() if k not in SECRET_FIELDS}
     for field in SECRET_FIELDS:
         out[f"has_{field}"] = bool(str(data.get(field) or "").strip())
+    credential, source = credential_for(data)
+    out["has_credential"] = bool(credential)
+    # Where it came from, never what it is. "environment" is what lets the panel say "configured
+    # by deployment" instead of showing an empty key field over a working configuration — which
+    # otherwise reads as broken and invites someone to paste a second key.
+    out["credential_source"] = source
+    try:
+        out["env_var"] = provider_spec(data.get("provider", "")).get("envVar", "")
+    except KeyError:
+        out["env_var"] = ""
+    state = deployment()
+    out["locked"] = state["locked"]
+    out["lock_reason"] = state["reason"]
+    out["hosted_space"] = state["space"]
     return out

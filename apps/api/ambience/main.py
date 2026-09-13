@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from .config import settings
 from .models import GeneratePlateRequest, GenerateRequest, ProjectCreate, PublishRequest
+from .providers.huggingface import list_text_to_image_models as list_hf_models
 from .providers.openai_images import list_models, pair_with_bridge
 from .providers.registry import backplate_provider_summary, provider_from_settings, provider_summary
 from .repository import ProjectRepository
@@ -272,11 +273,29 @@ class SettingsPatch(BaseModel):
     pair_token: str | None = None
     base_url: str | None = None
     model: str | None = None
+    hf_routing: str | None = None
+    hf_use_guide: bool | None = None
 
 
 class PairRequest(BaseModel):
     code: str
     label: str = "3d-ambience-studio"
+
+
+def _refuse_if_locked() -> None:
+    """A shared deployment configures itself; a visitor does not get to reconfigure it.
+
+    Refused loudly with 403 rather than accepted-and-ignored: a panel whose save appears to work
+    and changes nothing is worse than one that says it is read-only, and the reason travels with
+    the refusal so it can be shown.
+
+    What this prevents is not only a surprise bill. A writable base URL on a public instance is a
+    credential-exfiltration route — point the provider at a host you control and the deployment's
+    own key arrives in your logs on the next generate.
+    """
+    state = gen_settings.deployment()
+    if state["locked"]:
+        raise HTTPException(403, state["reason"])
 
 
 @app.get("/api/image-providers")
@@ -293,6 +312,7 @@ def get_generation_settings():
 
 @app.put("/api/settings/generation")
 def put_generation_settings(patch: SettingsPatch):
+    _refuse_if_locked()
     payload = {k: v for k, v in patch.model_dump().items() if v is not None}
     if "provider" in payload and payload["provider"] not in gen_settings.PROVIDER_IDS:
         raise HTTPException(400, f"Unknown provider: {payload['provider']}")
@@ -307,6 +327,7 @@ async def pair_device(payload: PairRequest):
     otherwise need CORS configured for the Studio's origin — the same reason the avatar app
     offers a proxy path.
     """
+    _refuse_if_locked()
     config = gen_settings.load()
     result = await pair_with_bridge(config.get("base_url", ""), payload.code, payload.label)
     if not result.get("ok"):
@@ -319,18 +340,28 @@ async def pair_device(payload: PairRequest):
 
 @app.post("/api/settings/generation/unpair")
 def unpair_device():
+    _refuse_if_locked()
     gen_settings.save({"pair_token": "", "device_id": ""})
     return {"ok": True}
 
 
 @app.get("/api/settings/generation/models")
 async def fetch_models():
+    """What the configured provider can actually draw with.
+
+    Two catalogues, because the two routes have nothing in common: an OpenAI-compatible endpoint
+    answers GET /v1/models, while Hugging Face's router is a filtered view of the Hub. Asking the
+    wrong one returns a plausible empty list rather than an error, which is the failure mode this
+    branch exists to avoid.
+    """
     config = gen_settings.load()
     auth_mode = config.get("auth_mode", "apikey")
-    credential = config.get("pair_token") if auth_mode == "pairing" else config.get("api_key")
+    credential, _source = gen_settings.credential_for(config)
     try:
+        if gen_settings.provider_spec(config["provider"])["kind"] == "huggingface":
+            return {"models": await list_hf_models(credential)}
         return {"models": await list_models(config.get("base_url", ""), credential or "", auth_mode)}
-    except (RuntimeError, OSError) as exc:
+    except (RuntimeError, OSError, KeyError) as exc:
         # Raised rather than returned empty: "no models" and "could not ask" look identical in
         # a dropdown, and one of them sends somebody to check their billing for no reason.
         raise HTTPException(400, str(exc))
@@ -350,6 +381,7 @@ async def test_connection():
         provider = provider_from_settings(config)
     except KeyError as exc:
         raise HTTPException(400, str(exc))
+    _credential, source = gen_settings.credential_for(config)
 
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "probe.png"
@@ -361,10 +393,16 @@ async def test_connection():
                 height=256,
             )
         except Exception as exc:  # noqa: BLE001 - any upstream failure is the answer here
-            return {"ok": False, "provider": config["provider"], "error": str(exc)[:600]}
+            return {
+                "ok": False,
+                "provider": config["provider"],
+                "credentialSource": source,
+                "error": str(exc)[:600],
+            }
         return {
             "ok": True,
             "provider": config["provider"],
+            "credentialSource": source,
             "bytes": out.stat().st_size if out.exists() else 0,
             "detail": provenance,
         }

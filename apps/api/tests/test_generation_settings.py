@@ -12,6 +12,7 @@ by reading the code.
 from __future__ import annotations
 
 import importlib
+import json
 
 import pytest
 from ambience.providers.backplate import MockBackplateProvider
@@ -21,8 +22,30 @@ from ambience.providers.registry import provider_from_settings
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    """A settings module pointed at a scratch directory."""
+    """A settings module pointed at a scratch directory, with the deployment layer neutral.
+
+    The environment variables matter as much as the directory does: settings now read the
+    deployment (a Space Secret, a locked panel), so a developer who happens to export HF_TOKEN
+    would otherwise get different results from these tests than CI does. Cleared here, and set
+    deliberately by the tests that are about them.
+    """
     monkeypatch.setenv("AMBIENCE_DATA_DIR", str(tmp_path))
+    for name in (
+        "SPACE_ID",
+        "HF_TOKEN",
+        "HUGGING_FACE_HUB_TOKEN",
+        "AMBIENCE_SETTINGS_LOCKED",
+        "AMBIENCE_IMAGE_PROVIDER",
+        "AMBIENCE_IMAGE_MODEL",
+        "AMBIENCE_HF_ROUTING",
+        "AMBIENCE_HF_USE_GUIDE",
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "OLLABRIDGE_TOKEN",
+        "OLLABRIDGE_LOCAL_TOKEN",
+        "HOMEPILOT_TOKEN",
+    ):
+        monkeypatch.delenv(name, raising=False)
     from ambience import config
 
     importlib.reload(config)
@@ -35,6 +58,7 @@ def store(tmp_path, monkeypatch):
 class TestProviderCatalogue:
     def test_it_covers_what_the_panel_offers(self, store):
         assert store.PROVIDER_IDS == [
+            "huggingface",
             "openai",
             "gemini",
             "ollabridge",
@@ -156,3 +180,117 @@ class TestAdapterSelection:
         # which surfaces as a confusing 401 against a bridge configured not to need one.
         config = store.save({"provider": "ollabridge-local", "auth_mode": "local-trust", "api_key": "ignored"})
         assert "Authorization" not in provider_from_settings(config)._headers()
+
+
+class TestHuggingFaceProvider:
+    """The cloud default when the Studio is hosted, and the one route that can use the guide."""
+
+    def test_it_is_offered_first(self, store):
+        # Position is the recommendation: it is the open-model route that needs no GPU and no
+        # account with any individual inference company.
+        assert store.PROVIDER_IDS[0] == "huggingface"
+
+    def test_it_ships_an_apache_licensed_default_model(self, store):
+        # Deliberate. A default is a licence decision made on the operator's behalf, and the
+        # better-looking FLUX "dev" weights are non-commercial, so they are reachable but never
+        # the default.
+        spec = store.provider_spec("huggingface")
+        assert spec["defaultModel"] == "black-forest-labs/FLUX.1-schnell"
+
+    def test_a_fresh_install_reads_that_model_with_nothing_stored(self, store, monkeypatch):
+        # Derived at read time, from no settings file at all: a Space that has never been
+        # configured still has a model to generate with. Once anything is saved the value is
+        # written like any other, which is why this checks the untouched case specifically.
+        monkeypatch.setenv("AMBIENCE_IMAGE_PROVIDER", "huggingface")
+        assert not store._path().exists()
+        assert store.load()["model"] == "black-forest-labs/FLUX.1-schnell"
+
+    def test_switching_away_does_not_carry_the_model(self, store):
+        # A Hub repo id means nothing to OpenAI. Carrying it across guarantees a failing generate.
+        store.save({"provider": "huggingface", "model": "Qwen/Qwen-Image"})
+        after = store.save({"provider": "openai"})
+        assert after["model"] == ""
+
+    def test_the_guide_is_off_until_asked_for(self, store):
+        # Only some provider/model pairs implement image-to-image, and the adapter raises rather
+        # than falling back — so defaulting it on would break generation for most models.
+        assert store.load()["hf_use_guide"] is False
+        assert store.load()["hf_routing"] == "auto"
+
+
+class TestCredentialSource:
+    """A Space Secret is the deployment's credential and never passes through the browser."""
+
+    def test_the_environment_wins_over_the_stored_key(self, store, monkeypatch):
+        store.save({"provider": "huggingface", "auth_mode": "apikey", "api_key": "stored-key"})
+        monkeypatch.setenv("HF_TOKEN", "env-token")
+        credential, source = store.credential_for(store.load())
+        assert credential == "env-token"
+        assert source == "environment"
+
+    def test_the_stored_key_is_used_when_the_environment_is_empty(self, store):
+        store.save({"provider": "openai", "auth_mode": "apikey", "api_key": "sk-desk"})
+        assert store.credential_for(store.load()) == ("sk-desk", "stored")
+
+    def test_pairing_mode_resolves_the_pair_token(self, store):
+        store.save({"provider": "ollabridge", "auth_mode": "pairing", "pair_token": "tok"})
+        assert store.credential_for(store.load()) == ("tok", "stored")
+
+    def test_no_credential_anywhere_says_so(self, store):
+        assert store.credential_for(store.load())[1] == "none"
+
+    def test_the_panel_is_told_the_source_but_never_the_value(self, store, monkeypatch):
+        monkeypatch.setenv("HF_TOKEN", "env-token")
+        out = store.redact(store.load())
+        assert out["credential_source"] == "environment"
+        assert out["env_var"] == "HF_TOKEN"
+        assert out["has_credential"] is True
+        assert "env-token" not in json.dumps(out)
+
+
+class TestDeploymentLock:
+    """A shared Space must not let a visitor spend the operator's credits."""
+
+    def test_a_desk_install_is_writable(self, store):
+        assert store.deployment()["locked"] is False
+
+    def test_a_hosted_space_is_locked(self, store, monkeypatch):
+        monkeypatch.setenv("SPACE_ID", "ruslanmv/3D-Ambience-Studio")
+        state = store.deployment()
+        assert state["locked"] is True
+        assert state["space"] is True
+        assert state["reason"], "A locked panel has to say why, or it reads as broken."
+
+    def test_a_private_space_can_be_unlocked_deliberately(self, store, monkeypatch):
+        monkeypatch.setenv("SPACE_ID", "ruslanmv/private")
+        monkeypatch.setenv("AMBIENCE_SETTINGS_LOCKED", "0")
+        assert store.deployment()["locked"] is False
+
+    def test_a_desk_install_can_be_locked_deliberately(self, store, monkeypatch):
+        monkeypatch.setenv("AMBIENCE_SETTINGS_LOCKED", "1")
+        assert store.deployment()["locked"] is True
+
+    def test_a_space_defaults_to_hugging_face(self, store, monkeypatch):
+        # Nothing stored, a token present: the working configuration out of the box is the one
+        # whose credential the deployment already has.
+        monkeypatch.setenv("SPACE_ID", "ruslanmv/3D-Ambience-Studio")
+        monkeypatch.setenv("HF_TOKEN", "env-token")
+        assert store.load()["provider"] == "huggingface"
+
+    def test_but_a_stored_choice_still_wins(self, store, monkeypatch):
+        store.save({"provider": "mock-backplate"})
+        monkeypatch.setenv("SPACE_ID", "ruslanmv/3D-Ambience-Studio")
+        assert store.load()["provider"] == "mock-backplate"
+
+    def test_an_operator_override_wins_over_everything(self, store, monkeypatch):
+        # How a locked deployment is configured at all: the panel cannot be used to set it.
+        store.save({"provider": "mock-backplate", "model": "stored-model"})
+        monkeypatch.setenv("AMBIENCE_IMAGE_PROVIDER", "huggingface")
+        monkeypatch.setenv("AMBIENCE_IMAGE_MODEL", "Qwen/Qwen-Image")
+        config = store.load()
+        assert config["provider"] == "huggingface"
+        assert config["model"] == "Qwen/Qwen-Image"
+
+    def test_an_unknown_override_provider_is_ignored_rather_than_stored(self, store, monkeypatch):
+        monkeypatch.setenv("AMBIENCE_IMAGE_PROVIDER", "not-a-provider")
+        assert store.load()["provider"] in store.PROVIDER_IDS

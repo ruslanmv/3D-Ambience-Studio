@@ -240,6 +240,9 @@ label.field > .field-label {
 
 input[type='text'],
 input[type='number'],
+/* Password too. Without it the API key field falls back to the browser's default white box in
+   the middle of a dark panel — the one control in SYSTEM CONFIGURATION that looked broken. */
+input[type='password'],
 textarea,
 select {
     width: 100%;
@@ -605,4 +608,45 @@ pre {
 
 .field .badge {
     margin-left: 6px;
+}
+
+/* The settings form as one disable-able unit.
+   A fieldset carries a browser border, padding and margin that would draw a box nobody asked
+   for; stripped here so the only visible effect of `disabled` is that the controls stop
+   responding — plus the dimming below, so a read-only panel looks read-only rather than broken. */
+.config-form {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.config-form:disabled {
+    opacity: 0.62;
+}
+
+.config-form:disabled .pick {
+    cursor: default;
+}
+
+
+/* A labelled switch: a real, visible checkbox next to its explanation.
+   Not `.pair-row`, whose `flex: 1` on a direct input child stretches a checkbox into a strip. */
+.switch-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-start;
+}
+
+.switch-row > input[type='checkbox'] {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.switch-row > .hint {
+    margin: 0;
 }

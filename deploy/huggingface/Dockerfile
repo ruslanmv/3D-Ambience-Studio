@@ -63,6 +63,11 @@ ENV PYTHONPATH=/home/user/app/apps/api \
     AMBIENCE_WEB_DIST=/home/user/app/apps/web/dist \
     AMBIENCE_PUBLIC_BASE_URL=/public
 
+# Credentials are not baked in. HF_TOKEN (and OPENAI_API_KEY, GEMINI_API_KEY, OLLABRIDGE_TOKEN,
+# HOMEPILOT_TOKEN) arrive as Space secrets, and the settings layer prefers the environment over
+# anything stored — so a Space authenticates with nothing written to disk and nothing shown in the
+# browser. With HF_TOKEN present the Studio starts on Hugging Face Inference Providers.
+
 EXPOSE 7860
 
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]
