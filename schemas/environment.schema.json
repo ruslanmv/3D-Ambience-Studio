@@ -24,9 +24,9 @@
     "variants": {
       "type": "object", "additionalProperties": false, "required": ["desktop", "quest", "companion"],
       "properties": {
-        "desktop": {"$ref": "#/$defs/panoramaVariant"},
-        "quest": {"$ref": "#/$defs/panoramaVariant"},
-        "mobile": {"$ref": "#/$defs/panoramaVariant"},
+        "desktop": {"oneOf": [{"$ref": "#/$defs/panoramaVariant"}, {"$ref": "#/$defs/backplateVariant"}]},
+        "quest": {"oneOf": [{"$ref": "#/$defs/panoramaVariant"}, {"$ref": "#/$defs/backplateVariant"}]},
+        "mobile": {"oneOf": [{"$ref": "#/$defs/panoramaVariant"}, {"$ref": "#/$defs/backplateVariant"}]},
         "companion": {"$ref": "#/$defs/companionVariant"}
       }
     },
@@ -65,6 +65,18 @@
     }
   },
   "$defs": {
+    "backplateVariant": {
+      "description": "A flat image composed for one consuming runtime's camera. Unlike a panorama it is not reusable across arbitrary views: it is correct for the projection named in cameraContract and no other, which is why that field is required.",
+      "type": "object", "additionalProperties": false, "required": ["type", "background", "cameraContract"],
+      "properties": {
+        "type": {"const": "backplate"}, "background": {"type": "string"},
+        "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}, "bytes": {"type": "integer", "minimum": 0},
+        "cameraContract": {
+          "type": "object", "additionalProperties": false, "required": ["id", "profile"],
+          "properties": {"id": {"type": "string"}, "runtime": {"type": "string"}, "profile": {"type": "string"}}
+        }
+      }
+    },
     "panoramaVariant": {
       "type": "object", "additionalProperties": false, "required": ["type", "background"],
       "properties": {

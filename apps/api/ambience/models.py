@@ -32,6 +32,11 @@ class ProjectRecord(ProjectCreate):
     sourcePanorama: str | None = None
     sourceAudio: str | None = None
     panoramaProvider: str | None = None
+    # Route 2. Kept alongside the panorama fields rather than replacing them: a project may be
+    # published as a panorama, as a backplate, or as both for different consumers.
+    sourceBackplate: str | None = None
+    backplateProvider: str | None = None
+    backplateProfile: str | None = None
     lighting: LightingConfig = LightingConfig()
     yawDegrees: float = 0.0
     companionMode: str = "gradient"

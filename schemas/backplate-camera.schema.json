@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourfriend.online/schemas/ambience/backplate-camera-v1.schema.json",
+  "title": "Backplate Camera Contract v1",
+  "description": "The projection a consuming runtime renders its character with, published as data so a backplate can be generated to agree with it. Produced by the runtime (for 3D-Avatar-Chatbot: tools/ambience/export-camera-contract.mjs); never hand-written, because every field is derived from the live camera.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "runtime", "profiles"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "runtime": {"type": "string", "minLength": 1},
+    "generatedBy": {"type": "string"},
+    "sourceOfTruth": {"type": "string"},
+    "nominalAvatar": {
+      "type": "object", "additionalProperties": false,
+      "required": ["height"],
+      "properties": {
+        "height": {"type": "number", "exclusiveMinimum": 0},
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "footY": {"type": "number"}
+      }
+    },
+    "profiles": {
+      "type": "object", "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/profile"}
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["master", "fovDeg", "aspect", "horizonY", "footAnchor", "safeZone"],
+      "properties": {
+        "master": {
+          "type": "object", "additionalProperties": false, "required": ["width", "height"],
+          "properties": {
+            "width": {"type": "integer", "minimum": 1},
+            "height": {"type": "integer", "minimum": 1}
+          }
+        },
+        "fovDeg": {"type": "number", "exclusiveMinimum": 0, "maximum": 179},
+        "aspect": {"type": "number", "exclusiveMinimum": 0},
+        "pitchDeg": {"type": "number", "minimum": -90, "maximum": 90},
+        "eyeHeightMetres": {"type": "number"},
+        "cameraDistanceMetres": {"type": "number", "exclusiveMinimum": 0},
+        "horizonY": {"$ref": "#/$defs/fraction"},
+        "headTopY": {"$ref": "#/$defs/fraction"},
+        "footAnchor": {
+          "type": "object", "additionalProperties": false, "required": ["x", "y"],
+          "properties": {"x": {"$ref": "#/$defs/fraction"}, "y": {"$ref": "#/$defs/fraction"}}
+        },
+        "safeZone": {
+          "type": "object", "additionalProperties": false, "required": ["x0", "x1", "y0", "y1"],
+          "properties": {
+            "x0": {"$ref": "#/$defs/fraction"}, "x1": {"$ref": "#/$defs/fraction"},
+            "y0": {"$ref": "#/$defs/fraction"}, "y1": {"$ref": "#/$defs/fraction"}
+          }
+        },
+        "groundLines": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["metres", "y"],
+            "properties": {
+              "metres": {"type": "number", "exclusiveMinimum": 0},
+              "y": {"$ref": "#/$defs/fraction"}
+            }
+          }
+        }
+      }
+    },
+    "fraction": {
+      "description": "A position in the frame, 0..1, with y increasing downward — the way an image editor and an image model both think.",
+      "type": "number", "minimum": 0, "maximum": 1
+    }
+  }
+}

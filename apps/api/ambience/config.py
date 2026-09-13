@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     panfusion_url: str = "http://localhost:8101"
     triposr_url: str = "http://localhost:8102"
     text2vr_url: str = "http://localhost:8103"
+    backplate_url: str = "http://localhost:8104"
 
     @property
     def data_dir(self) -> Path:
