@@ -336,3 +336,88 @@ class TestPackage:
         report = plate_package.plan(contract, spec, FakeProvider(), out)
         assert not out.exists()
         assert len(report["steps"]) == 2
+
+
+class CountingProvider(FakeProvider):
+    """Counts generations, so a resume can be proved rather than asserted."""
+
+    model = "counting-model"
+
+
+class TestResume:
+    """Twenty paid requests make this the difference between a retry and a second bill."""
+
+    def test_a_second_run_generates_nothing_new(self, contract, spec, tmp_path):
+        work = tmp_path / "work"
+        provider = CountingProvider()
+        build_package(contract, spec, provider, tmp_path / "out1", work)
+        assert len(provider.calls) == 2
+        build_package(contract, spec, provider, tmp_path / "out2", work)
+        assert len(provider.calls) == 2, "a completed variant was regenerated"
+
+    def test_only_the_missing_variant_is_regenerated(self, contract, spec, tmp_path):
+        # The case this exists for: thirteen succeed, fourteen fails, the next run buys one image.
+        work = tmp_path / "work"
+        provider = CountingProvider()
+        build_package(contract, spec, provider, tmp_path / "out1", work)
+        (work / "state-mobile.json").unlink()
+        build_package(contract, spec, provider, tmp_path / "out2", work)
+        assert len(provider.calls) == 3
+        assert provider.calls[-1]["metadata"]["variant"] == "mobile"
+
+    def test_force_regenerates_everything(self, contract, spec, tmp_path):
+        work = tmp_path / "work"
+        provider = CountingProvider()
+        build_package(contract, spec, provider, tmp_path / "out1", work)
+        asyncio.run(
+            plate_package.build(
+                contract, {"id": "avatar-chatbot"}, spec, provider, tmp_path / "out2", work, force=True
+            )
+        )
+        assert len(provider.calls) == 4
+
+    def test_a_changed_prompt_is_not_reused(self, contract, spec, tmp_path):
+        # Art direction edited between runs. Skipping would publish the old picture under the new
+        # description — a silent wrong answer, and the cheapest thing here is the money.
+        work = tmp_path / "work"
+        provider = CountingProvider()
+        build_package(contract, spec, provider, tmp_path / "out1", work)
+        build_package(contract, {**spec, "subject": "a completely different place"}, provider, tmp_path / "out2", work)
+        assert len(provider.calls) == 4
+
+    def test_a_moved_camera_is_not_reused(self, contract, spec, tmp_path):
+        # Re-exporting the contract must invalidate every plate composed against the old one,
+        # or the batch looks finished and no longer fits.
+        work = tmp_path / "work"
+        provider = CountingProvider()
+        build_package(contract, spec, provider, tmp_path / "out1", work)
+        moved = json.loads(json.dumps(contract))
+        moved["profiles"]["landscape"]["horizonY"] = 0.5
+        build_package(moved, spec, provider, tmp_path / "out2", work)
+        assert len(provider.calls) == 4
+
+    def test_a_different_model_is_not_reused(self, contract, spec, tmp_path):
+        work = tmp_path / "work"
+        first = CountingProvider()
+        build_package(contract, spec, first, tmp_path / "out1", work)
+        second = CountingProvider()
+        second.model = "another-model"
+        build_package(contract, spec, second, tmp_path / "out2", work)
+        assert len(second.calls) == 2
+
+    def test_a_truncated_source_is_regenerated_rather_than_published(self, contract, spec, tmp_path):
+        # An interrupted run leaves half a PNG. The ledger says done; the file says otherwise.
+        work = tmp_path / "work"
+        provider = CountingProvider()
+        build_package(contract, spec, provider, tmp_path / "out1", work)
+        (work / "source-desktop.png").write_bytes(b"\x89PNG\r\n\x1a\n truncated")
+        build_package(contract, spec, provider, tmp_path / "out2", work)
+        assert len(provider.calls) == 3
+
+    def test_the_calibration_fingerprint_follows_the_geometry(self, contract):
+        moved = json.loads(json.dumps(contract))
+        moved["profiles"]["portrait"]["footAnchor"]["y"] = 0.5
+        assert plate_package.calibration_fingerprint(contract) != plate_package.calibration_fingerprint(moved)
+        assert plate_package.calibration_fingerprint(contract) == plate_package.calibration_fingerprint(
+            json.loads(json.dumps(contract))
+        )

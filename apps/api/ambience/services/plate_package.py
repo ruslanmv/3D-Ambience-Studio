@@ -38,6 +38,7 @@ from typing import Any
 
 from PIL import Image
 
+from ..scenes import PROMPT_VERSION
 from .backplate_guide import build_prompt, get_profile, render_guide
 from .image_pipeline import BACKPLATE_TARGETS, optimize_backplate
 
@@ -83,6 +84,64 @@ def compile_prompts(contract: dict, spec: dict) -> dict[str, dict]:
     return out
 
 
+def calibration_fingerprint(contract: dict) -> str:
+    """A short hash of the camera geometry a plate was composed against.
+
+    Recorded per variant so a resumed batch can tell "already generated" from "generated against
+    a camera that has since moved". Without it, re-exporting the contract would leave twenty
+    plates that look finished and no longer fit — the expensive kind of stale.
+    """
+    profiles = contract.get("profiles", {})
+    payload = json.dumps(profiles, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def variant_state_path(work_dir: Path, variant: str) -> Path:
+    return work_dir / f"state-{variant}.json"
+
+
+def record_variant(work_dir: Path, variant: str, state: dict) -> None:
+    """Written the moment a generation succeeds, not at the end of the batch.
+
+    The whole point of resuming is that a crash at image fourteen keeps the first thirteen. A
+    ledger written after everything succeeds would only ever describe runs that did not need it.
+    """
+    work_dir.mkdir(parents=True, exist_ok=True)
+    variant_state_path(work_dir, variant).write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+
+def completed_variant(work_dir: Path, variant: str, expected: dict) -> dict | None:
+    """The recorded state if this variant is genuinely done, otherwise None.
+
+    "Done" means four things agree: a source image exists and opens, and the scene, the prompt and
+    the calibration it was made for are the ones being asked for now. Any disagreement means
+    regenerate — a skipped variant that does not match is a silent wrong answer, and the money
+    saved by skipping it is the cheapest part of this.
+    """
+    path = variant_state_path(work_dir, variant)
+    if not path.exists():
+        return None
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    source = work_dir / state.get("source", "")
+    if not source.exists() or source.stat().st_size == 0:
+        return None
+    try:
+        with Image.open(source) as image:
+            image.verify()
+    except (OSError, ValueError):
+        # A half-written PNG from an interrupted run. Regenerate rather than publish it.
+        return None
+
+    for field in ("scene", "promptSha256", "calibration", "model"):
+        if state.get(field) != expected.get(field):
+            return None
+    return state
+
+
 def plan(contract: dict, spec: dict, provider: Any, out_dir: Path) -> dict:
     """Everything a live run would do, without doing any of it."""
     compiled = compile_prompts(contract, spec)
@@ -119,6 +178,8 @@ async def build(
     provider: Any,
     out_dir: Path,
     work_dir: Path,
+    *,
+    force: bool = False,
 ) -> dict:
     """Generate, optimise and package. Raises rather than publishing something half-built.
 
@@ -128,8 +189,11 @@ async def build(
     """
     compiled = compile_prompts(contract, spec)
     work_dir.mkdir(parents=True, exist_ok=True)
+    calibration = calibration_fingerprint(contract)
+    model = getattr(provider, "model", "") or getattr(provider, "name", "")
 
     staged: dict[str, dict] = {}
+    reused: list[str] = []
     for variant, item in compiled.items():
         profile_name = item["profile"]
         if profile_name not in BACKPLATE_TARGETS:
@@ -142,17 +206,37 @@ async def build(
         render_guide(item["camera"]).save(guide_path)
 
         raw = work_dir / f"source-{variant}.png"
-        provenance = await provider.generate(
-            prompt=item["prompt"],
-            output=raw,
-            width=item["master"]["width"],
-            height=item["master"]["height"],
-            guide=guide_path,
-            negative_prompt=item["negativePrompt"],
-            metadata={"scene": spec["id"], "variant": variant, "profile": profile_name},
-        )
-        if not raw.exists() or raw.stat().st_size == 0:
-            raise PlatePackageError(f"{variant}: provider reported success but wrote no image.")
+        expected = {
+            "scene": spec["id"],
+            "promptSha256": hashlib.sha256(item["prompt"].encode("utf-8")).hexdigest(),
+            "calibration": calibration,
+            "model": model,
+        }
+
+        existing = None if force else completed_variant(work_dir, variant, expected)
+        if existing:
+            # Already generated, by this model, from this prompt, against this camera. Twenty
+            # paid requests is enough that re-running after a failure at image fourteen must not
+            # buy the first thirteen again.
+            provenance = existing.get("provenance", {})
+            reused.append(variant)
+        else:
+            provenance = await provider.generate(
+                prompt=item["prompt"],
+                output=raw,
+                width=item["master"]["width"],
+                height=item["master"]["height"],
+                guide=guide_path,
+                negative_prompt=item["negativePrompt"],
+                metadata={"scene": spec["id"], "variant": variant, "profile": profile_name},
+            )
+            if not raw.exists() or raw.stat().st_size == 0:
+                raise PlatePackageError(f"{variant}: provider reported success but wrote no image.")
+            record_variant(
+                work_dir,
+                variant,
+                {**expected, "source": raw.name, "provenance": provenance, "recordedAt": _now()},
+            )
 
         meta = optimize_backplate(raw, work_dir, profile_name)
         staged[variant] = {"optimised": meta[profile_name], "provenance": provenance, "guide": guide_path}
@@ -183,7 +267,14 @@ async def build(
     provenance = build_provenance(spec, compiled, staged, written, contract_meta)
     (out_dir / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n", encoding="utf-8")
 
-    return {"dir": out_dir, "manifest": manifest, "provenance": provenance, "assets": written, "preview": preview}
+    return {
+        "dir": out_dir,
+        "manifest": manifest,
+        "provenance": provenance,
+        "assets": written,
+        "preview": preview,
+        "reused": reused,
+    }
 
 
 def build_manifest(spec: dict, compiled: dict, written: dict, preview: Path, contract_meta: dict) -> dict:
@@ -268,6 +359,7 @@ def build_provenance(spec: dict, compiled: dict, staged: dict, written: dict, co
         "schemaVersion": 1,
         "scene": {"id": spec["id"], "version": spec["version"]},
         "generatedAt": _now(),
+        "promptVersion": PROMPT_VERSION,
         "cameraContract": contract_meta,
         "subject": spec["subject"],
         "variants": entries,
