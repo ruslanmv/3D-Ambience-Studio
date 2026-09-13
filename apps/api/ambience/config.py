@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     panfusion_url: str = "http://localhost:8101"
     triposr_url: str = "http://localhost:8102"
     text2vr_url: str = "http://localhost:8103"
+    backplate_url: str = "http://localhost:8104"
+    homepilot_url: str = "http://localhost:8105"
+    # Routing keys passed through to HomePilot untouched. Empty means "let HomePilot decide",
+    # which is what its own auto mode is for.
+    homepilot_image_provider: str = "auto"
+    homepilot_image_model: str = ""
 
     @property
     def data_dir(self) -> Path:

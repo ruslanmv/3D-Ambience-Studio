@@ -1,1 +1,652 @@
-:root{font-family:Inter,system-ui,sans-serif;background:#0b1020;color:#edf2ff}*{box-sizing:border-box}body{margin:0}main{max-width:1050px;margin:auto;padding:36px 20px 80px}header{margin-bottom:26px}h1{font-size:clamp(2rem,5vw,4rem);margin:.1em 0}p{color:#b8c1d9}.card{background:#121a2d;border:1px solid #26324e;border-radius:18px;padding:22px;margin:18px 0;box-shadow:0 18px 50px #0004}form{display:grid;gap:14px}label{display:grid;gap:7px;color:#cdd6eb}input,textarea{background:#0c1324;color:#fff;border:1px solid #35415f;border-radius:10px;padding:12px;font:inherit}textarea{min-height:100px}button{background:#f0f3ff;color:#11172a;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.project{display:flex;justify-content:space-between;gap:20px;border-top:1px solid #26324e;padding:18px 0}.project:first-of-type{border-top:0}.project small{display:block;color:#8793af;margin-top:6px}.actions{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.actions button{font-size:.85rem}pre{white-space:pre-wrap;overflow:auto;background:#09101e;padding:14px;border-radius:10px}@media(max-width:700px){.project{display:block}.actions{margin-top:12px}}
+/* ============================================
+   3D AMBIENCE STUDIO
+   Same family as 3D-Avatar-Chatbot: the tokens below are lifted from that app's
+   styles/main.css so the two read as one product rather than two.
+
+   Deliberately not identical. The Studio is a desk tool — longer sessions, denser
+   forms, more reading — so it borrows the palette, the two fonts and the glass
+   panels, and drops the HUD chrome that suits a character viewport and fights a
+   settings form.
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+:root {
+    /* Identical to the avatar app. */
+    --primary: #00e5ff;
+    --primary-dark: #00b8d4;
+    --secondary: #7c4dff;
+    --accent-green: #00ff88;
+    --accent-orange: #ff9100;
+    --accent-purple: #b388ff;
+
+    --glass-bg: rgba(15, 25, 35, 0.75);
+    --glass-border: rgba(0, 229, 255, 0.3);
+    --glass-highlight: rgba(255, 255, 255, 0.1);
+
+    --text-primary: #e0f7fa;
+    --text-secondary: #80deea;
+    --text-muted: #4dd0e1;
+
+    --bg-dark: #0a0e1a;
+    --bg-darker: #050810;
+
+    --status-error: #ff5252;
+
+    --font-display: 'Orbitron', sans-serif;
+    --font-body: 'Rajdhani', sans-serif;
+
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+
+    --border-radius: 12px;
+    --border-radius-sm: 8px;
+
+    --shadow-glow: 0 0 20px rgba(0, 229, 255, 0.3);
+    --shadow-panel: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 16px;
+    color: var(--text-primary);
+    background:
+        radial-gradient(1200px 600px at 70% -10%, rgba(124, 77, 255, 0.12), transparent 60%),
+        radial-gradient(900px 500px at 10% 110%, rgba(0, 229, 255, 0.1), transparent 60%),
+        var(--bg-darker);
+    min-height: 100vh;
+}
+
+/* ── Topbar — the avatar app's, near enough to read as the same product ─────── */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid var(--primary);
+    box-shadow: var(--shadow-glow);
+    flex-shrink: 0;
+    background: radial-gradient(circle at 35% 35%, rgba(0, 229, 255, 0.35), transparent 60%);
+}
+
+.brand-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.brand-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
+
+.topbar-status {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 4px 12px;
+    white-space: nowrap;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+
+.shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: var(--spacing-lg) var(--spacing-md) var(--spacing-lg);
+}
+
+.panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-panel);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.panel-title {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    margin: 0 0 var(--spacing-sm);
+    text-transform: uppercase;
+}
+
+.hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 6px 0 0;
+    line-height: 1.5;
+}
+
+/* ── Stepper ────────────────────────────────────────────────────────────────── */
+
+.steps {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.step {
+    flex: 1 1 140px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    background: rgba(0, 0, 0, 0.25);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    font-size: 0.8rem;
+}
+
+.step[data-state='active'] {
+    border-color: var(--primary);
+    background: rgba(0, 229, 255, 0.1);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+}
+
+.step[data-state='done'] {
+    border-color: rgba(0, 255, 136, 0.45);
+}
+
+.step-index {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+}
+
+.step[data-state='done'] .step-index {
+    color: var(--accent-green);
+}
+
+.step[data-state='active'] .step-index {
+    color: var(--primary);
+}
+
+.step[data-state='todo'] {
+    opacity: 0.55;
+}
+
+/* ── Form controls ──────────────────────────────────────────────────────────── */
+
+label.field {
+    display: block;
+    margin-bottom: var(--spacing-sm);
+}
+
+label.field > .field-label {
+    /* Inside a field the label is the first thing, so it needs no top gap. */
+    margin-top: 0;
+}
+
+.field-label {
+    display: block;
+    margin-top: var(--spacing-sm);
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+input[type='text'],
+input[type='number'],
+/* Password too. Without it the API key field falls back to the browser's default white box in
+   the middle of a dark panel — the one control in SYSTEM CONFIGURATION that looked broken. */
+input[type='password'],
+textarea,
+select {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+textarea {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.15);
+}
+
+.row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
+
+button {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--glass-border);
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:hover:not(:disabled) {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0, 229, 255, 0.2);
+}
+
+button.primary {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.22), rgba(124, 77, 255, 0.22));
+    border-color: var(--primary);
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-wrap: wrap;
+    margin-top: var(--spacing-sm);
+}
+
+.actions.end {
+    justify-content: flex-end;
+}
+
+/* ── Profile cards, matching the avatar app's Settings grid ─────────────────── */
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--spacing-xs);
+}
+
+.pick {
+    position: relative;
+    cursor: pointer;
+}
+
+.pick input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pick-body {
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm);
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pick:hover .pick-body {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.pick input:checked + .pick-body {
+    background: rgba(0, 229, 255, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+}
+
+.pick input:focus-visible + .pick-body {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.pick-body,
+.pick-name,
+.pick-meta {
+    /* Spans by default, so without this the name and the size run together on one line:
+       "landscape1920×1080 · 30° FOV". A <label> may not contain a <div>, hence spans. */
+    display: block;
+}
+
+.pick-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+}
+
+.pick-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ── Preview ────────────────────────────────────────────────────────────────── */
+
+.preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.preview figure {
+    margin: 0;
+}
+
+.preview img {
+    width: 100%;
+    display: block;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    background: #000;
+}
+
+.preview figcaption {
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+pre {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    padding: var(--spacing-sm);
+    overflow: auto;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 320px;
+    color: var(--text-secondary);
+}
+
+.facts {
+    margin-top: var(--spacing-sm);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+}
+
+.fact {
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.fact-key {
+    font-size: 0.64rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.fact-val {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    color: var(--primary);
+}
+
+/* ── Notices ────────────────────────────────────────────────────────────────── */
+
+.notice {
+    border-radius: var(--border-radius-sm);
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    margin-bottom: var(--spacing-sm);
+    border: 1px solid;
+}
+
+.notice.error {
+    border-color: var(--status-error);
+    background: rgba(255, 82, 82, 0.12);
+    color: #ffcdd2;
+}
+
+.notice.ok {
+    border-color: var(--accent-green);
+    background: rgba(0, 255, 136, 0.1);
+    color: #b9f6ca;
+}
+
+.notice.info {
+    border-color: var(--glass-border);
+    background: rgba(0, 229, 255, 0.07);
+    color: var(--text-secondary);
+}
+
+/* ── Project list ───────────────────────────────────────────────────────────── */
+
+.project {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-sm);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    padding: 10px 14px;
+    margin-bottom: var(--spacing-xs);
+    background: rgba(0, 0, 0, 0.25);
+    flex-wrap: wrap;
+}
+
+.project strong {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+}
+
+.project small {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.badge {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+    .shell {
+        padding: var(--spacing-sm);
+    }
+    .step {
+        flex-basis: 100%;
+    }
+}
+
+
+/* ── SYSTEM CONFIGURATION — the avatar app's Settings panel, for image generation ──── */
+
+.config-title {
+    /* Identical to the avatar app's section heading, so the two panels read the same. */
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin: var(--spacing-md) 0 var(--spacing-sm);
+}
+
+.pick-icon {
+    display: block;
+    font-size: 1.6rem;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+
+.pair-row {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+}
+
+.pair-row > select,
+.pair-row > input {
+    flex: 1;
+    min-width: 0;
+}
+
+.pair-row > button {
+    white-space: nowrap;
+}
+
+.pair-code {
+    letter-spacing: 0.3em;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+/* The paired state, matching the avatar app's green confirmation box. */
+.paired {
+    display: flex;
+    gap: var(--spacing-xs);
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    border-radius: var(--border-radius-sm);
+    background: rgba(34, 197, 94, 0.08);
+}
+
+.paired-ok {
+    font-size: 0.82rem;
+    color: #22c55e;
+}
+
+.paired-device {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.test-status {
+    font-size: 0.78rem;
+    margin-top: 6px;
+    opacity: 0.85;
+    min-height: 1.2em;
+    color: var(--text-secondary);
+}
+
+.field .badge {
+    margin-left: 6px;
+}
+
+/* The settings form as one disable-able unit.
+   A fieldset carries a browser border, padding and margin that would draw a box nobody asked
+   for; stripped here so the only visible effect of `disabled` is that the controls stop
+   responding — plus the dimming below, so a read-only panel looks read-only rather than broken. */
+.config-form {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.config-form:disabled {
+    opacity: 0.62;
+}
+
+.config-form:disabled .pick {
+    cursor: default;
+}
+
+
+/* A labelled switch: a real, visible checkbox next to its explanation.
+   Not `.pair-row`, whose `flex: 1` on a direct input child stretches a checkbox into a strip. */
+.switch-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: flex-start;
+}
+
+.switch-row > input[type='checkbox'] {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.switch-row > .hint {
+    margin: 0;
+}
