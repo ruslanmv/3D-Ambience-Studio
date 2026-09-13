@@ -8,5 +8,10 @@ __pycache__/
 build/
 dist/
 
+# Node, for the web app. Absent until the wizard was built, which is how a first
+# `npm install` nearly put the whole dependency tree into a commit.
+node_modules/
+*.tsbuildinfo
+
 # Runtime data: generated projects, optimised work files and published output.
 data/

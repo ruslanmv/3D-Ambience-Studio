@@ -1,13 +1,15 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from typing import Literal
+
 from pydantic import BaseModel, Field
 
 Category = Literal["relax", "meditation", "study", "sleep", "nature", "cozy", "fantasy", "focus", "chill", "seasonal"]
 
 
 def utcnow() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class LightingConfig(BaseModel):
@@ -48,6 +50,19 @@ class ProjectRecord(ProjectCreate):
 
 class GenerateRequest(BaseModel):
     provider: str = "mock"
+    seed: int | None = None
+
+
+class GeneratePlateRequest(BaseModel):
+    """A plate request names the camera it is for, which a panorama request never has to.
+
+    `contract` is a filename under examples/backplate-camera rather than a path, so a request
+    cannot reach outside that directory.
+    """
+
+    provider: str = "mock-backplate"
+    contract: str = "avatar-chatbot.json"
+    profile: str = "landscape"
     seed: int | None = None
 
 

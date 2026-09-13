@@ -1,12 +1,15 @@
-from pathlib import Path
 import shutil
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from pathlib import Path
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
 from .config import settings
-from .models import ProjectCreate, GenerateRequest, PublishRequest
+from .models import GeneratePlateRequest, GenerateRequest, ProjectCreate, PublishRequest
+from .providers.registry import backplate_provider_summary, provider_summary
 from .repository import ProjectRepository
-from .providers.registry import provider_summary
+from .services.backplate_guide import ContractError, build_prompt, get_profile, load_contract
 from .workflow import Workflow
 
 app = FastAPI(title="3D-Ambience-Studio API", version="0.1.0")
@@ -126,3 +129,125 @@ def catalog():
         return {"schemaVersion": 1, "generatedAt": "", "environments": []}
     import json
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ── Plate route (the fixed-camera backgrounds 3D-Avatar-Chatbot consumes) ────────────────────
+#
+# Separate endpoints rather than a mode flag on the panorama ones. The two produce different
+# shapes, take different arguments and fail for different reasons, and a single endpoint that
+# branched on a flag would report a panorama's errors for a plate.
+
+
+def _contracts_dir() -> Path:
+    return Path.cwd() / "examples" / "backplate-camera"
+
+
+@app.get("/api/camera-contracts")
+def camera_contracts():
+    """The runtimes a plate can be generated for, and the profiles each offers.
+
+    The wizard reads this rather than hard-coding "landscape" and "portrait": a second consuming
+    runtime with its own camera should appear in the list without a front-end change.
+    """
+    out = []
+    for path in sorted(_contracts_dir().glob("*.json")):
+        try:
+            contract = load_contract(path)
+        except (ContractError, ValueError):
+            # A malformed contract is skipped with the rest still listed — one bad file should
+            # not empty the dropdown.
+            continue
+        out.append(
+            {
+                "file": path.name,
+                "id": contract.get("id"),
+                "runtime": contract.get("runtime"),
+                "profiles": [
+                    {
+                        "name": name,
+                        "width": profile["master"]["width"],
+                        "height": profile["master"]["height"],
+                        "fovDeg": profile.get("fovDeg"),
+                        "horizonY": profile.get("horizonY"),
+                        "footAnchor": profile.get("footAnchor"),
+                        "safeZone": profile.get("safeZone"),
+                    }
+                    for name, profile in contract.get("profiles", {}).items()
+                ],
+            }
+        )
+    return out
+
+
+@app.get("/api/backplate-providers")
+def backplate_providers():
+    return backplate_provider_summary()
+
+
+@app.post("/api/projects/{project_id}/preview-prompt")
+def preview_prompt(project_id: str, payload: GeneratePlateRequest):
+    """What will actually be sent, before anything is generated.
+
+    The wizard shows this. A designer writing "moonlit terrace" should be able to see the
+    technical paragraph the Studio appends on their behalf — both so the constraints are
+    inspectable and so a surprising result has somewhere to be explained.
+    """
+    try:
+        project = repo.get(project_id)
+        contract = load_contract(_contracts_dir() / payload.contract)
+        camera = get_profile(contract, payload.profile)
+    except (KeyError, ContractError, FileNotFoundError, ValueError) as exc:
+        raise HTTPException(400, str(exc))
+    return {
+        "prompt": build_prompt(camera, project.prompt or project.name),
+        "negativePrompt": build_prompt(camera, "", negative=True),
+        "profile": payload.profile,
+        "master": camera["master"],
+    }
+
+
+@app.post("/api/projects/{project_id}/generate-plate")
+async def generate_plate(project_id: str, payload: GeneratePlateRequest):
+    try:
+        return await workflow.generate_backplate(
+            project_id,
+            payload.provider,
+            _contracts_dir() / payload.contract,
+            payload.profile,
+            payload.seed,
+        )
+    except (KeyError, ContractError, FileNotFoundError, ValueError) as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/projects/{project_id}/optimize-plate")
+def optimize_plate(project_id: str, payload: GeneratePlateRequest):
+    try:
+        return workflow.optimize_backplate_asset(project_id, payload.profile)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/projects/{project_id}/guide/{profile}")
+def plate_guide(project_id: str, profile: str):
+    """The conditioning image, so the wizard can show what the generator was told."""
+    from fastapi.responses import FileResponse
+
+    path = repo.project_dir(project_id) / f"guide-{profile}.png"
+    if not path.exists():
+        raise HTTPException(404, "No guide for that profile yet — generate first.")
+    return FileResponse(path, media_type="image/png")
+
+
+@app.get("/api/projects/{project_id}/plate/{profile}")
+def plate_image(project_id: str, profile: str):
+    """The generated plate itself, for the wizard's preview."""
+    from fastapi.responses import FileResponse
+
+    for candidate in (
+        settings.data_dir / "work" / project_id / f"backplate-{profile}.webp",
+        repo.project_dir(project_id) / f"source-backplate-{profile}.png",
+    ):
+        if candidate.exists():
+            return FileResponse(candidate)
+    raise HTTPException(404, "No plate for that profile yet.")
