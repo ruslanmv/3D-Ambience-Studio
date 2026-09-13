@@ -5,6 +5,7 @@ from .huggingface import HuggingFacePlateProvider
 from .http import HTTPPanoramaProvider
 from .mock import MockPanoramaProvider
 from .openai_images import OpenAICompatibleImageProvider
+from .openai_plate import OpenAIPlateProvider
 
 
 def get_panorama_provider(name: str):
@@ -102,6 +103,8 @@ def provider_from_settings(config: dict):
         )
     if kind == "mock":
         return MockBackplateProvider()
+    if kind == "openai-plate":
+        return OpenAIPlateProvider(credential, model=config.get("model", ""))
     if kind == "openai-compatible":
         return OpenAICompatibleImageProvider(
             config.get("base_url") or spec["defaultBaseUrl"],

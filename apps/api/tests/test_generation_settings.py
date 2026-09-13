@@ -17,6 +17,7 @@ import json
 import pytest
 from ambience.providers.backplate import MockBackplateProvider
 from ambience.providers.openai_images import OpenAICompatibleImageProvider
+from ambience.providers.openai_plate import OpenAIPlateProvider
 from ambience.providers.registry import provider_from_settings
 
 
@@ -153,12 +154,20 @@ class TestProviderSwitch:
 
 
 class TestAdapterSelection:
-    def test_the_three_openai_compatible_providers_share_one_adapter(self, store):
-        # OpenAI, the cloud bridge and the local bridge differ in base URL and credential and in
-        # nothing else that matters, which is the whole reason for one adapter.
-        for provider in ("openai", "ollabridge", "ollabridge-local"):
+    def test_the_two_bridges_share_one_adapter(self, store):
+        # The cloud bridge and the local bridge differ in base URL and credential and in nothing
+        # else that matters, which is the whole reason for one adapter.
+        for provider in ("ollabridge", "ollabridge-local"):
             built = provider_from_settings(store.save({"provider": provider}))
             assert isinstance(built, OpenAICompatibleImageProvider)
+
+    def test_openai_does_not_share_it(self, store):
+        # It used to, and that was a 400 waiting to happen: the shared adapter always sends
+        # `response_format`, which the gpt-image family rejects outright. Verified against the
+        # live API, so this is a fixed defect rather than a precaution.
+        built = provider_from_settings(store.save({"provider": "openai", "api_key": "sk-x"}))
+        assert isinstance(built, OpenAIPlateProvider)
+        assert not isinstance(built, OpenAICompatibleImageProvider)
 
     def test_mock_needs_no_network(self, store):
         assert isinstance(provider_from_settings(store.save({"provider": "mock-backplate"})), MockBackplateProvider)
@@ -172,8 +181,13 @@ class TestAdapterSelection:
         assert built._headers()["Authorization"] == "Bearer tok-123"
 
     def test_apikey_mode_sends_the_api_key(self, store):
-        config = store.save({"provider": "openai", "auth_mode": "apikey", "api_key": "sk-abc"})
+        config = store.save({"provider": "ollabridge", "auth_mode": "apikey", "api_key": "sk-abc"})
         assert provider_from_settings(config)._headers()["Authorization"] == "Bearer sk-abc"
+
+    def test_the_openai_adapter_carries_the_key_too(self, store):
+        # Same guarantee, different adapter: it builds its own Authorization header per request.
+        built = provider_from_settings(store.save({"provider": "openai", "auth_mode": "apikey", "api_key": "sk-abc"}))
+        assert built.api_key == "sk-abc"
 
     def test_local_trust_sends_no_header_at_all(self, store):
         # Not an empty Bearer: some stacks reject the malformed header rather than ignoring it,
@@ -206,10 +220,12 @@ class TestHuggingFaceProvider:
         assert store.load()["model"] == "black-forest-labs/FLUX.1-schnell"
 
     def test_switching_away_does_not_carry_the_model(self, store):
-        # A Hub repo id means nothing to OpenAI. Carrying it across guarantees a failing generate.
+        # A Hub repo id means nothing to OpenAI. Carrying it across guarantees a failing generate,
+        # so a switch takes the new provider's own default — which for OpenAI is a real model id.
         store.save({"provider": "huggingface", "model": "Qwen/Qwen-Image"})
         after = store.save({"provider": "openai"})
-        assert after["model"] == ""
+        assert after["model"] != "Qwen/Qwen-Image"
+        assert after["model"] == store.provider_spec("openai")["defaultModel"]
 
     def test_the_guide_is_off_until_asked_for(self, store):
         # Only some provider/model pairs implement image-to-image, and the adapter raises rather

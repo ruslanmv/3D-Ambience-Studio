@@ -4,110 +4,446 @@
   "title": "3D Ambience Environment Manifest v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "id", "version", "name", "category", "preview", "variants", "lighting", "effects"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "name",
+    "category",
+    "preview",
+    "variants",
+    "lighting",
+    "effects"
+  ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-    "name": {"type": "string", "minLength": 1},
-    "description": {"type": "string"},
-    "category": {"type": "string", "enum": ["relax", "meditation", "study", "sleep", "nature", "cozy", "fantasy", "focus", "chill", "seasonal"]},
-    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "relax",
+        "meditation",
+        "study",
+        "sleep",
+        "nature",
+        "cozy",
+        "fantasy",
+        "focus",
+        "chill",
+        "seasonal"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
     "preview": {
-      "type": "object", "additionalProperties": false, "required": ["src"],
-      "properties": {"src": {"type": "string"}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "src"
+      ],
+      "properties": {
+        "src": {
+          "type": "string"
+        }
+      }
     },
     "orientation": {
-      "type": "object", "additionalProperties": false,
-      "properties": {"yawDegrees": {"type": "number", "minimum": -360, "maximum": 360}, "floorY": {"type": "number"}}
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "yawDegrees": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360
+        },
+        "floorY": {
+          "type": "number"
+        }
+      }
     },
     "variants": {
-      "type": "object", "additionalProperties": false, "required": ["desktop", "quest", "companion"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "desktop",
+        "companion"
+      ],
       "properties": {
-        "desktop": {"oneOf": [{"$ref": "#/$defs/panoramaVariant"}, {"$ref": "#/$defs/backplateVariant"}]},
-        "quest": {"oneOf": [{"$ref": "#/$defs/panoramaVariant"}, {"$ref": "#/$defs/backplateVariant"}]},
-        "mobile": {"oneOf": [{"$ref": "#/$defs/panoramaVariant"}, {"$ref": "#/$defs/backplateVariant"}]},
-        "companion": {"$ref": "#/$defs/companionVariant"}
+        "desktop": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/panoramaVariant"
+            },
+            {
+              "$ref": "#/$defs/backplateVariant"
+            }
+          ]
+        },
+        "quest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/panoramaVariant"
+            },
+            {
+              "$ref": "#/$defs/backplateVariant"
+            }
+          ]
+        },
+        "mobile": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/panoramaVariant"
+            },
+            {
+              "$ref": "#/$defs/backplateVariant"
+            }
+          ]
+        },
+        "companion": {
+          "$ref": "#/$defs/companionVariant"
+        }
       }
     },
     "audio": {
-      "type": ["object", "null"], "additionalProperties": false,
-      "required": ["ambient", "loop", "defaultVolume"],
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "ambient",
+        "loop",
+        "defaultVolume"
+      ],
       "properties": {
-        "ambient": {"type": "string"}, "loop": {"type": "boolean"},
-        "defaultVolume": {"type": "number", "minimum": 0, "maximum": 1}
+        "ambient": {
+          "type": "string"
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "defaultVolume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
       }
     },
     "lighting": {
-      "type": "object", "additionalProperties": false, "required": ["preset"],
-      "properties": {"preset": {"type": "string"}, "exposure": {"type": "number", "minimum": 0, "maximum": 4}, "keyIntensity": {"type": "number", "minimum": 0, "maximum": 4}}
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preset"
+      ],
+      "properties": {
+        "preset": {
+          "type": "string"
+        },
+        "exposure": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "keyIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 4
+        }
+      }
     },
     "effects": {
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false, "required": ["type", "preset", "intensity"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "preset",
+          "intensity"
+        ],
         "properties": {
-          "type": {"type": "string", "enum": ["rain", "snow", "fireflies", "dust", "stars", "fog", "water-shimmer"]},
-          "preset": {"type": "string"}, "intensity": {"type": "number", "minimum": 0, "maximum": 1}
+          "type": {
+            "type": "string",
+            "enum": [
+              "rain",
+              "snow",
+              "fireflies",
+              "dust",
+              "stars",
+              "fog",
+              "water-shimmer"
+            ]
+          },
+          "preset": {
+            "type": "string"
+          },
+          "intensity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
         }
       }
     },
     "geometry": {
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false, "required": ["src", "role"],
-        "properties": {"src": {"type": "string"}, "role": {"type": "string", "enum": ["foreground", "diorama", "prop"]}}
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "src",
+          "role"
+        ],
+        "properties": {
+          "src": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "foreground",
+              "diorama",
+              "prop"
+            ]
+          }
+        }
       }
     },
     "compatibility": {
-      "type": "object", "additionalProperties": false,
-      "properties": {"minRuntime": {"type": "string"}, "passthrough": {"type": "string", "enum": ["hidden", "props-only", "compatible"]}}
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minRuntime": {
+          "type": "string"
+        },
+        "passthrough": {
+          "type": "string",
+          "enum": [
+            "hidden",
+            "props-only",
+            "compatible"
+          ]
+        }
+      }
+    },
+    "fallbackColor": {
+      "description": "Shown while the background loads, and instead of it if it cannot be loaded at all.",
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
     }
   },
   "$defs": {
     "backplateVariant": {
       "description": "A flat image composed for one consuming runtime's camera. Unlike a panorama it is not reusable across arbitrary views: it is correct for the projection named in cameraContract and no other, which is why that field is required.",
-      "type": "object", "additionalProperties": false, "required": ["type", "background", "cameraContract"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "background",
+        "cameraContract"
+      ],
       "properties": {
-        "type": {"enum": ["backplate", "plate"]}, "background": {"type": "string"},
-        "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}, "bytes": {"type": "integer", "minimum": 0},
-        "cameraContract": {
-          "type": "object", "additionalProperties": false, "required": ["id", "profile"],
-          "properties": {"id": {"type": "string"}, "runtime": {"type": "string"}, "profile": {"type": "string"}}
+        "type": {
+          "enum": [
+            "backplate",
+            "plate"
+          ]
         },
-        "fovY": {"description": "Vertical field of view in degrees, denormalised from the camera contract so a consumer can sanity-check a plate without resolving the contract.", "type": "number", "exclusiveMinimum": 0, "maximum": 179},
+        "background": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cameraContract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "profile"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "runtime": {
+              "type": "string"
+            },
+            "profile": {
+              "type": "string"
+            }
+          }
+        },
+        "fovY": {
+          "description": "Vertical field of view in degrees, denormalised from the camera contract so a consumer can sanity-check a plate without resolving the contract.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 179
+        },
         "avatarAnchor": {
           "description": "Where the character stands, as frame fractions. feetY is the row the floor must be readable at.",
-          "type": "object", "additionalProperties": false, "required": ["x", "feetY"],
-          "properties": {"x": {"$ref": "#/$defs/fraction01"}, "feetY": {"$ref": "#/$defs/fraction01"}}
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "feetY"
+          ],
+          "properties": {
+            "x": {
+              "$ref": "#/$defs/fraction01"
+            },
+            "feetY": {
+              "$ref": "#/$defs/fraction01"
+            }
+          }
         },
         "safeZone": {
           "description": "The band that must stay free of dominant foreground detail. Derived from the character's projected silhouette, so it is wider in portrait than in landscape.",
-          "type": "object", "additionalProperties": false, "required": ["xMin", "xMax", "yMin", "yMax"],
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "xMin",
+            "xMax",
+            "yMin",
+            "yMax"
+          ],
           "properties": {
-            "xMin": {"$ref": "#/$defs/fraction01"}, "xMax": {"$ref": "#/$defs/fraction01"},
-            "yMin": {"$ref": "#/$defs/fraction01"}, "yMax": {"$ref": "#/$defs/fraction01"}
+            "xMin": {
+              "$ref": "#/$defs/fraction01"
+            },
+            "xMax": {
+              "$ref": "#/$defs/fraction01"
+            },
+            "yMin": {
+              "$ref": "#/$defs/fraction01"
+            },
+            "yMax": {
+              "$ref": "#/$defs/fraction01"
+            }
           }
         }
       }
     },
     "fraction01": {
       "description": "A position in the frame, 0..1, with y increasing downward.",
-      "type": "number", "minimum": 0, "maximum": 1
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
     },
     "panoramaVariant": {
-      "type": "object", "additionalProperties": false, "required": ["type", "background"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "background"
+      ],
       "properties": {
-        "type": {"const": "panorama"}, "background": {"type": "string"},
-        "width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}, "bytes": {"type": "integer", "minimum": 0}
+        "type": {
+          "const": "panorama"
+        },
+        "background": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "companionVariant": {
-      "type": "object", "additionalProperties": false, "required": ["type"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": {"type": "string", "enum": ["inherit", "none", "transparent", "gradient", "panorama", "minimal"]},
-        "preset": {"type": "string"}, "background": {"type": "string"}
+        "type": {
+          "type": "string",
+          "enum": [
+            "inherit",
+            "none",
+            "transparent",
+            "gradient",
+            "panorama",
+            "minimal"
+          ]
+        },
+        "preset": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "description": "A panorama package must still carry its Quest variant \u2014 that requirement is what stops a skybox shipping without the resolution a headset needs. A plate package has no Quest form at all, so requiring one would only invite a placeholder.",
+      "if": {
+        "properties": {
+          "variants": {
+            "properties": {
+              "desktop": {
+                "properties": {
+                  "type": {
+                    "const": "panorama"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "variants": {
+            "required": [
+              "desktop",
+              "quest",
+              "companion"
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

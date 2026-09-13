@@ -174,3 +174,60 @@ that sit comfortably with a default key/fill/rim setup.
 **A worker.** `workers/` is still a README. `mock-backplate` is the only provider
 that runs today, and it draws gradients, not art. The HTTP adapter is ready for a
 worker that does not yet exist here.
+
+## The OpenAI plate route
+
+`ambience plate` builds a complete two-variant package — desktop and mobile, each composed for its
+own camera profile — and publishes it under `data/public/environments/<id>/<version>/`.
+
+```bash
+ambience plate --provider openai                 # dry run: prompts, sizes, paths. No call.
+ambience plate --provider openai --live          # two API calls. Costs money.
+ambience plate --provider mock-backplate --live  # the whole pipeline, no network
+pytest apps/api/tests/test_plate_package.py      # never spends credit
+```
+
+Dry run is the default because a live run costs real money and returns a different picture each
+time. It prints the compiled prompts verbatim — they are built by the same function the live path
+uses, so what you read is what gets sent.
+
+### What the API actually enforces
+
+Measured on 2026-09-13 by sending deliberately invalid values, so nothing was generated and
+nothing was billed:
+
+| Rule                                   | Consequence                                          |
+| -------------------------------------- | ---------------------------------------------------- |
+| Both edges divisible by 16              | 1920×1080 and 1080×1920 are **not requestable**      |
+| Longest edge ≤ 3840                     | caps the request, not the master                     |
+| A minimum pixel budget                  | tiny probes are refused                              |
+| `quality` ∈ low, medium, high, auto     | anything else is a 400                               |
+| `response_format` is **not** a parameter | the OpenAI-compatible adapter cannot drive this model |
+
+So the provider asks for 1920×1088 and 1088×1920 and lets `optimize_backplate` crop the surplus.
+That crop only ever removes pixels, which is what keeps the horizon on the row the contract put it
+on.
+
+### Why there are two images and not one crop
+
+A plate is composed for one projection. Cropping the landscape plate to portrait moves the
+horizon, and the horizon is the entire contract — 44.4% of frame height in landscape, 46.1% in
+portrait, with the character's feet at 89.7% and 88.2%. Two cameras, two pictures, one piece of
+art direction.
+
+### Visual QA, which is not automated
+
+The manifest validating and the files being the right size prove nothing about whether the picture
+works. Nothing here is a vision model, so these are for a person to check, with the plate open
+beside the guide from `tools/ambience/make-backplate-kit.py` in the runtime repository:
+
+- Does the foot anchor land on continuous, flat, believable ground?
+- Is the keep-clear band free of anything prominent?
+- Is the sea/sky horizon close to the contract line?
+- Does the light come from the direction the art direction asked for?
+- Is the mobile plate *composed* as a portrait — more sky, more foreground — rather than cropped?
+- Does the apparent scale suggest a room a 1.6 m figure belongs in?
+
+The fastest real check is the runtime's own: drop the plate into `assets/ambient/` in
+3D-Avatar-Chatbot and load it with `?backgroundCalibration=1`, which draws the horizon and foot
+anchor over the live avatar.

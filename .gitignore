@@ -15,3 +15,10 @@ node_modules/
 
 # Runtime data: generated projects, optimised work files and published output.
 data/
+
+# Local configuration. `config.py` reads .env, so this is where an API key lands — and it was not
+# ignored until the OpenAI route needed one. A key committed to a public repository is a key that
+# has to be revoked, not one that can be removed.
+.env
+.env.*
+!.env.example

@@ -60,11 +60,18 @@ PROVIDERS: list[dict[str, Any]] = [
         "envVar": "OPENAI_API_KEY",
         "label": "OpenAI",
         "icon": "🤖",
-        "kind": "openai-compatible",
+        # Its own kind, not "openai-compatible". The gpt-image family rejects `response_format`,
+        # which the shared adapter always sends, so this card was a 400 waiting to happen.
+        "kind": "openai-plate",
         "defaultBaseUrl": "https://api.openai.com",
+        "defaultModel": "gpt-image-2.5-sunburst",
         "auth": ["apikey"],
-        "supportsGuideImage": True,
-        "notes": "Direct to OpenAI's image API. Model ids are configuration — set whichever your account has.",
+        "supportsGuideImage": False,
+        "notes": (
+            "Direct to OpenAI's image API. Sizes must be multiples of 16 with the longest edge at "
+            "most 3840; the adapter snaps and the optimise step crops. The generations endpoint "
+            "takes no reference image, so the camera guide travels as text."
+        ),
     },
     {
         "id": "gemini",
