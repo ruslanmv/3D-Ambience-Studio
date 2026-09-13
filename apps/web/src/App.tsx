@@ -12,6 +12,7 @@
  * the same checked-card pattern its Settings grid uses. The two are one product.
  */
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import Settings from './Settings';
 
 const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -436,6 +437,8 @@ export default function App() {
                         <pre>{result}</pre>
                     </section>
                 )}
+
+                <Settings />
 
                 <section className="panel">
                     <h2 className="panel-title">Projects</h2>

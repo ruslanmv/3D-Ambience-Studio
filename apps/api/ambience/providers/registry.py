@@ -3,6 +3,7 @@ from .backplate import HTTPBackplateProvider, MockBackplateProvider
 from .homepilot import HomePilotPlateProvider
 from .http import HTTPPanoramaProvider
 from .mock import MockPanoramaProvider
+from .openai_images import OpenAICompatibleImageProvider
 
 
 def get_panorama_provider(name: str):
@@ -72,3 +73,38 @@ def backplate_provider_summary() -> list[dict]:
             ),
         },
     ]
+
+
+def provider_from_settings(config: dict):
+    """Build the configured image provider from the stored settings.
+
+    One place that turns "what the operator chose in the panel" into an object, so the wizard,
+    the test-connection endpoint and the generate endpoint cannot disagree about what
+    `provider: "ollabridge"` means.
+    """
+    from ..services.generation_settings import provider_spec
+
+    spec = provider_spec(config["provider"])
+    kind = spec["kind"]
+    auth_mode = config.get("auth_mode", "apikey")
+    # Pairing and API-key modes both end up as a Bearer token; which field holds it is the
+    # only difference, and the adapter should not have to know that.
+    credential = config.get("pair_token") if auth_mode == "pairing" else config.get("api_key")
+
+    if kind == "mock":
+        return MockBackplateProvider()
+    if kind == "openai-compatible":
+        return OpenAICompatibleImageProvider(
+            config.get("base_url") or spec["defaultBaseUrl"],
+            api_key=credential or "",
+            auth_mode=auth_mode,
+            model=config.get("model", ""),
+            name=config["provider"],
+        )
+    if kind == "homepilot":
+        return HomePilotPlateProvider(
+            config.get("base_url") or spec["defaultBaseUrl"],
+            model=config.get("model", ""),
+            name="homepilot",
+        )
+    raise KeyError(f"No adapter for provider kind {kind!r}")

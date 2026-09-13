@@ -4,11 +4,14 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from .config import settings
 from .models import GeneratePlateRequest, GenerateRequest, ProjectCreate, PublishRequest
-from .providers.registry import backplate_provider_summary, provider_summary
+from .providers.openai_images import list_models, pair_with_bridge
+from .providers.registry import backplate_provider_summary, provider_from_settings, provider_summary
 from .repository import ProjectRepository
+from .services import generation_settings as gen_settings
 from .services.backplate_guide import ContractError, build_prompt, get_profile, load_contract
 from .workflow import Workflow
 
@@ -251,3 +254,117 @@ def plate_image(project_id: str, profile: str):
         if candidate.exists():
             return FileResponse(candidate)
     raise HTTPException(404, "No plate for that profile yet.")
+
+
+# ── Image generation settings (the SYSTEM CONFIGURATION panel) ───────────────────────────────
+
+
+class SettingsPatch(BaseModel):
+    """A partial update. Omitted fields keep their stored value; an empty string clears one.
+
+    Partial on purpose — pairing must not have to resend the API key, and a form that does not
+    render the key field must not wipe it on save.
+    """
+
+    provider: str | None = None
+    auth_mode: str | None = None
+    api_key: str | None = None
+    pair_token: str | None = None
+    base_url: str | None = None
+    model: str | None = None
+
+
+class PairRequest(BaseModel):
+    code: str
+    label: str = "3d-ambience-studio"
+
+
+@app.get("/api/image-providers")
+def image_providers():
+    """Everything the panel needs to render itself: icons, auth modes, defaults, caveats."""
+    return gen_settings.PROVIDERS
+
+
+@app.get("/api/settings/generation")
+def get_generation_settings():
+    # Redacted: the panel shows that a key is stored, never the key.
+    return gen_settings.redact(gen_settings.load())
+
+
+@app.put("/api/settings/generation")
+def put_generation_settings(patch: SettingsPatch):
+    payload = {k: v for k, v in patch.model_dump().items() if v is not None}
+    if "provider" in payload and payload["provider"] not in gen_settings.PROVIDER_IDS:
+        raise HTTPException(400, f"Unknown provider: {payload['provider']}")
+    return gen_settings.redact(gen_settings.save(payload))
+
+
+@app.post("/api/settings/generation/pair")
+async def pair_device(payload: PairRequest):
+    """Exchange a pairing code for a device token and store it.
+
+    Proxied through the API rather than called from the browser because the bridge would
+    otherwise need CORS configured for the Studio's origin — the same reason the avatar app
+    offers a proxy path.
+    """
+    config = gen_settings.load()
+    result = await pair_with_bridge(config.get("base_url", ""), payload.code, payload.label)
+    if not result.get("ok"):
+        raise HTTPException(400, result.get("error", "Pairing failed."))
+    gen_settings.save(
+        {"pair_token": result["token"], "device_id": result.get("device_id") or "", "auth_mode": "pairing"}
+    )
+    return {"ok": True, "device_id": result.get("device_id")}
+
+
+@app.post("/api/settings/generation/unpair")
+def unpair_device():
+    gen_settings.save({"pair_token": "", "device_id": ""})
+    return {"ok": True}
+
+
+@app.get("/api/settings/generation/models")
+async def fetch_models():
+    config = gen_settings.load()
+    auth_mode = config.get("auth_mode", "apikey")
+    credential = config.get("pair_token") if auth_mode == "pairing" else config.get("api_key")
+    try:
+        return {"models": await list_models(config.get("base_url", ""), credential or "", auth_mode)}
+    except (RuntimeError, OSError) as exc:
+        # Raised rather than returned empty: "no models" and "could not ask" look identical in
+        # a dropdown, and one of them sends somebody to check their billing for no reason.
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/settings/generation/test")
+async def test_connection():
+    """One small generation against the configured provider, reported honestly.
+
+    Cheap enough to run freely and real enough to prove the credential, the base URL and the
+    model all work together — which is the whole point of testing before a full-size plate.
+    """
+    import tempfile
+
+    config = gen_settings.load()
+    try:
+        provider = provider_from_settings(config)
+    except KeyError as exc:
+        raise HTTPException(400, str(exc))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "probe.png"
+        try:
+            provenance = await provider.generate(
+                prompt="a plain grey test square, no detail",
+                output=out,
+                width=256,
+                height=256,
+            )
+        except Exception as exc:  # noqa: BLE001 - any upstream failure is the answer here
+            return {"ok": False, "provider": config["provider"], "error": str(exc)[:600]}
+        return {
+            "ok": True,
+            "provider": config["provider"],
+            "bytes": out.stat().st_size if out.exists() else 0,
+            "detail": provenance,
+        }
