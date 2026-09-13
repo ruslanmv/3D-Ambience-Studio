@@ -33,6 +33,7 @@ cp "$HF_DIR/Dockerfile" "$TARGET/Dockerfile"        # what the Space builds
 cp "$HF_DIR/requirements.txt" "$TARGET/requirements.txt"
 cp "$HF_DIR/app.py" "$TARGET/app.py"                # uvicorn app:app
 cp "$HF_DIR/.dockerignore" "$TARGET/.dockerignore"
+cp "$HF_DIR/gitattributes" "$TARGET/.gitattributes"   # HF's default LFS rules, not ours to drop
 
 # ── The application ──────────────────────────────────────────────────────────────────────────
 cp pyproject.toml "$TARGET/pyproject.toml"

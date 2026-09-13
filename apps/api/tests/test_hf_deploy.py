@@ -170,6 +170,17 @@ def test_tree_carries_no_credentials(deploy_tree):
     assert not offenders, f"Files in the deploy tree contain something shaped like an HF token: {offenders}"
 
 
+def test_the_tree_keeps_hugging_faces_own_lfs_rules(deploy_tree):
+    """The deploy replaces the Space's history wholesale, so anything not in the tree is deleted.
+
+    .gitattributes is created by Hugging Face when the Space is made. Nothing we push should match
+    its patterns, but silently removing a file the platform put there is the kind of side effect
+    that is noticed months later by something else.
+    """
+    rules = (deploy_tree / ".gitattributes").read_text(encoding="utf-8")
+    assert "filter=lfs" in rules
+
+
 def test_space_readme_replaces_the_repo_readme(deploy_tree):
     """The Space card has to be README.md — Hugging Face reads the frontmatter from that name."""
     assert (deploy_tree / "README.md").read_text(encoding="utf-8").startswith("---\n")
