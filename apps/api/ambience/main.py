@@ -368,3 +368,31 @@ async def test_connection():
             "bytes": out.stat().st_size if out.exists() else 0,
             "detail": provenance,
         }
+
+
+# ── Serving the web app from the API (single-process deployments) ─────────────────────────────
+#
+# Two processes locally — Vite on :5173, this on :8000 — but a Hugging Face Space exposes exactly
+# one port, so there the built bundle has to come from here. Mounted last, after every route
+# above, because a StaticFiles mount at "/" matches everything: declared earlier it would shadow
+# /api and /health and the Space would serve index.html in answer to every request.
+#
+# Gated on the directory existing so a development checkout that has never run `npm run build`
+# starts exactly as before instead of dying on a missing path.
+
+
+def _web_dist() -> Path:
+    """Where the built front-end lands, overridable for a container that puts it elsewhere."""
+    import os
+
+    configured = os.environ.get("AMBIENCE_WEB_DIST")
+    if configured:
+        return Path(configured)
+    return Path.cwd() / "apps" / "web" / "dist"
+
+
+_dist = _web_dist()
+if (_dist / "index.html").is_file():
+    # html=True so "/" resolves to index.html. The wizard has no client-side router, so no
+    # deep-link fallback is needed beyond that.
+    app.mount("/", StaticFiles(directory=_dist, html=True), name="web")

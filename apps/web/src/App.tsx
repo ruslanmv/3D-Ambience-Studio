@@ -13,8 +13,7 @@
  */
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Settings from './Settings';
-
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API } from './api';
 
 type Project = { id: string; name: string; prompt: string; category: string; status: string };
 type Profile = {

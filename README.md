@@ -122,6 +122,22 @@ python scripts/bootstrap_upstreams.py --group reference   # large / research rep
 
 Use `--group all` only when you really want everything.
 
+## Run it on Hugging Face
+
+The Studio also runs as a single-process **Docker Space** on port 7860, with FastAPI serving both
+the API and the built wizard. Everything that arrangement needs is in `deploy/huggingface/`, and
+`.github/workflows/sync-hf-space.yml` force-pushes a freshly built tree to the Space on every push
+to `main`.
+
+```bash
+bash deploy/huggingface/build-tree.sh /tmp/space   # exactly what gets pushed
+docker build -t ambience-space /tmp/space && docker run --rm -p 7860:7860 ambience-space
+```
+
+Set the `HF_TOKEN`, `HF_USERNAME` and `SPACE_NAME` repository secrets first. See
+`deploy/huggingface/DEPLOY.md` — in particular the note that a Space has no user accounts, so
+credentials entered in SYSTEM CONFIGURATION are shared by everyone who can open it.
+
 ## Repository layout
 
 ```text
@@ -134,6 +150,8 @@ Use `--group all` only when you really want everything.
 ├── examples/                # Sample published manifests
 ├── fixtures/                # Tiny test media, safe for Git
 ├── scripts/                 # Upstream bootstrap + GitHub helper
+├── deploy/huggingface/      # Docker Space: card, Dockerfile, deploy-tree builder
+├── .github/workflows/       # CI + Hugging Face Space sync
 ├── upstreams.lock.json      # Pinned upstream revisions observed during scaffold creation
 ├── docker-compose.yml
 ├── pyproject.toml

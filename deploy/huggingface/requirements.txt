@@ -1,0 +1,16 @@
+# Runtime dependencies for the Hugging Face Space, copied to the deploy tree root so the
+# Dockerfile can install them in their own layer before the source is added — an edit to a .py
+# file then rebuilds in seconds instead of reinstalling FastAPI.
+#
+# This duplicates `[project].dependencies` in pyproject.toml, which is a drift risk, so it is not
+# trusted to stay in step: tests/test_hf_deploy.py fails if the two lists diverge. Add a
+# dependency in pyproject.toml first, then mirror it here.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+pydantic-settings>=2.4
+python-multipart>=0.0.9
+Pillow>=10.4
+typer>=0.12
+httpx>=0.27
+jsonschema>=4.23

@@ -1,0 +1,12 @@
+# The deploy tree is already minimal (see build-tree.sh), so this is belt and braces: if someone
+# builds the image from a full repository checkout instead, these are the directories that would
+# otherwise be sent to the daemon and, worse, could shadow what the build installs.
+.git
+node_modules
+dist
+data
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.env
