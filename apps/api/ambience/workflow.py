@@ -1,12 +1,15 @@
 from __future__ import annotations
+
 import json
 from pathlib import Path
+
+from .providers.registry import get_backplate_provider, get_panorama_provider
 from .repository import ProjectRepository
-from .providers.registry import get_panorama_provider
-from .services.image_pipeline import optimize_panorama
 from .services.audio_pipeline import optimize_audio
-from .services.validator import validate_project_assets, validate_json, load_schema
+from .services.backplate_guide import build_prompt, get_profile, load_contract, render_guide
+from .services.image_pipeline import optimize_backplate, optimize_panorama
 from .services.publisher import publish_project
+from .services.validator import load_schema, validate_json, validate_project_assets
 
 
 class Workflow:
@@ -27,6 +30,75 @@ class Workflow:
         project.panoramaProvider = provider_name
         project.status = "generated"
         return self.repo.save(project)
+
+    async def generate_backplate(
+        self,
+        project_id: str,
+        provider_name: str,
+        contract_path: Path,
+        profile: str = "landscape",
+        seed: int | None = None,
+    ):
+        """Route 2: generate a flat backplate directly, against a runtime's camera contract.
+
+        Every pixel ends up in the final image, and the generator is handed a picture of where
+        the horizon and the floor have to be — neither of which the panorama route can offer.
+        See docs/BACKPLATE_ROUTE.md for why that matters and what it costs.
+
+        The guide is written into the project directory and kept. It is the strongest evidence
+        available when a backplate turns out not to line up: the question becomes whether the
+        guide was wrong or the worker ignored it, and without the artefact neither is answerable.
+        """
+        project = self.repo.get(project_id)
+        project_dir = self.repo.project_dir(project_id)
+
+        contract = load_contract(Path(contract_path))
+        camera = get_profile(contract, profile)
+        guide_path = project_dir / f"guide-{profile}.png"
+        guide_path.parent.mkdir(parents=True, exist_ok=True)
+        render_guide(camera).save(guide_path)
+
+        prompt = build_prompt(camera, project.prompt or project.name)
+        negative = build_prompt(camera, "", negative=True)
+        output = project_dir / f"source-backplate-{profile}.png"
+
+        provider = get_backplate_provider(provider_name)
+        provenance = await provider.generate(
+            prompt=prompt,
+            output=output,
+            width=int(camera["master"]["width"]),
+            height=int(camera["master"]["height"]),
+            guide=guide_path,
+            negative_prompt=negative,
+            seed=seed,
+        )
+        provenance["cameraContract"] = {"id": contract.get("id"), "runtime": contract.get("runtime"), "profile": profile}
+        (project_dir / f"provenance-backplate-{profile}.json").write_text(
+            json.dumps(provenance, indent=2) + "\n", encoding="utf-8"
+        )
+        project.sourceBackplate = output.name
+        project.backplateProvider = provider_name
+        project.backplateProfile = profile
+        project.status = "generated"
+        return self.repo.save(project)
+
+    def optimize_backplate_asset(self, project_id: str, profile: str | None = None) -> dict:
+        """Crop and resize the generated backplate to its profile's exact master size."""
+        project = self.repo.get(project_id)
+        project_dir = self.repo.project_dir(project_id)
+        if not project.sourceBackplate:
+            raise ValueError("Project has no generated backplate.")
+        source = project_dir / project.sourceBackplate
+        if not source.exists():
+            raise ValueError(f"Backplate source is missing: {source.name}")
+        work_dir = self.work_root / project_id
+        work_dir.mkdir(parents=True, exist_ok=True)
+        meta = optimize_backplate(source, work_dir, profile or project.backplateProfile or "landscape")
+        serializable = {k: {**v, "path": str(v["path"])} for k, v in meta.items()}
+        (work_dir / "backplate-meta.json").write_text(json.dumps(serializable, indent=2) + "\n", encoding="utf-8")
+        project.status = "optimized"
+        self.repo.save(project)
+        return serializable
 
     def optimize(self, project_id: str) -> dict:
         project = self.repo.get(project_id)

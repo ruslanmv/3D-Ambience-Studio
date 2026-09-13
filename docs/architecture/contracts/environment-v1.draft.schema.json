@@ -1,0 +1,733 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yourfriend.online/schemas/ambience/environment-v1.schema.json",
+  "title": "3D Ambience Environment Manifest v1 (DRAFT)",
+  "description": "Generator-neutral description of one published ambient environment. DRAFT proposed to replace schemas/environment.schema.json. The Studio writes strictly (additionalProperties false); consumers must read leniently and ignore unknown fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "minRuntime",
+    "name",
+    "category",
+    "fallbackColor",
+    "preview",
+    "thumbnail",
+    "variants",
+    "lighting",
+    "orientation",
+    "presentation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64,
+      "description": "Stable environment identity. Also the runtime scene id; must be a non-empty string or the runtime rejects the manifest."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semver of this published environment. Immutable once published."
+    },
+    "minRuntime": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Minimum ambience-support version of 3D-Avatar-Chatbot required. An older runtime must skip this environment rather than partially load it."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 400
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "relax",
+        "meditation",
+        "study",
+        "sleep",
+        "nature",
+        "cozy",
+        "fantasy",
+        "focus",
+        "chill",
+        "seasonal"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]*$",
+        "maxLength": 32
+      },
+      "uniqueItems": true,
+      "maxItems": 16
+    },
+    "fallbackColor": {
+      "$ref": "#/$defs/hexColor",
+      "description": "REQUIRED. Painted when no background asset loads, and in passthrough. Computed by the Studio from the panorama rather than chosen by hand."
+    },
+    "preview": {
+      "$ref": "#/$defs/imageAsset"
+    },
+    "thumbnail": {
+      "$ref": "#/$defs/imageAsset"
+    },
+    "variants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "desktop"
+      ],
+      "description": "Pre-generated per-target assets. The runtime selects; it never downsamples a desktop asset to serve a headset.",
+      "properties": {
+        "desktop": {
+          "$ref": "#/$defs/backgroundVariant"
+        },
+        "quest": {
+          "$ref": "#/$defs/backgroundVariant"
+        },
+        "mobile": {
+          "$ref": "#/$defs/backgroundVariant"
+        },
+        "companion": {
+          "$ref": "#/$defs/backgroundVariant"
+        }
+      }
+    },
+    "audio": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "sources",
+        "loop",
+        "seamless",
+        "durationMs",
+        "defaultVolume"
+      ],
+      "properties": {
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "description": "Ordered by preference. The runtime hands exactly one URL to an HTMLAudioElement, so it picks the first source that canPlayType accepts.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "src",
+              "mime",
+              "bytes",
+              "hash"
+            ],
+            "properties": {
+              "src": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "mime": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "hash": {
+                "$ref": "#/$defs/hash"
+              }
+            }
+          }
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "seamless": {
+          "type": "boolean",
+          "description": "Studio assertion that naive loop=true on a media element is gapless. There are no loop points: the runtime cannot honour them."
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 1000
+        },
+        "defaultVolume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "loudnessLufs": {
+          "type": "number",
+          "minimum": -40,
+          "maximum": 0
+        }
+      }
+    },
+    "lighting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preset"
+      ],
+      "description": "Semantic only. The runtime owns what a preset means. The panorama is deliberately NOT the IBL.",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "soft-nature",
+            "sunset-soft",
+            "forest-green",
+            "cool-rain",
+            "warm-study",
+            "campfire",
+            "night"
+          ]
+        },
+        "exposure": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 2.5,
+          "description": "Written to renderer.toneMappingExposure by the runtime. The one lighting value the runtime consumes today."
+        },
+        "hdr": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "src",
+                "format",
+                "width",
+                "height",
+                "bytes",
+                "hash"
+              ],
+              "properties": {
+                "src": {
+                  "$ref": "#/$defs/relativePath"
+                },
+                "format": {
+                  "type": "string",
+                  "enum": [
+                    "hdr",
+                    "exr",
+                    "ktx2"
+                  ]
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 32,
+                  "maximum": 1024
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 16,
+                  "maximum": 512
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "hash": {
+                  "$ref": "#/$defs/hash"
+                }
+              }
+            }
+          ],
+          "description": "Optional small IBL for environments needing directional character. Usually null; kept small because it costs a PMREM pass."
+        }
+      }
+    },
+    "orientation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forwardYawDegrees",
+        "floorY"
+      ],
+      "properties": {
+        "forwardYawDegrees": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360,
+          "description": "Rotation applied so the intended view is in front of the user, rather than wherever the generator's seam fell."
+        },
+        "floorY": {
+          "type": "number",
+          "minimum": -5,
+          "maximum": 5
+        },
+        "avatarAnchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "position",
+            "faceUser"
+          ],
+          "properties": {
+            "position": {
+              "$ref": "#/$defs/vec3"
+            },
+            "faceUser": {
+              "type": "boolean"
+            }
+          }
+        },
+        "anchors": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "Named directions the avatar may look toward. Data, not behaviour. The runtime requires this to be an array.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "dir"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]*$",
+                "maxLength": 24
+              },
+              "dir": {
+                "$ref": "#/$defs/vec3"
+              }
+            }
+          }
+        }
+      }
+    },
+    "effects": {
+      "type": "array",
+      "maxItems": 4,
+      "description": "Named presets the runtime implements. Never parameters, never shader or script source.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "preset",
+          "intensity"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "rain",
+              "snow",
+              "fireflies",
+              "dust",
+              "stars",
+              "fog",
+              "water-shimmer"
+            ]
+          },
+          "preset": {
+            "type": "string",
+            "enum": [
+              "gentle",
+              "moderate",
+              "heavy"
+            ]
+          },
+          "intensity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "xr",
+        "passthrough",
+        "companion"
+      ],
+      "description": "Declared creator intent for three runtime modes. The runtime retains final authority in all three.",
+      "properties": {
+        "xr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "background"
+          ],
+          "properties": {
+            "background": {
+              "type": "string",
+              "enum": [
+                "panorama",
+                "solid",
+                "none"
+              ]
+            }
+          }
+        },
+        "passthrough": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "behavior"
+          ],
+          "properties": {
+            "behavior": {
+              "type": "string",
+              "enum": [
+                "hidden",
+                "props-only",
+                "compatible"
+              ]
+            }
+          }
+        },
+        "companion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "behavior"
+          ],
+          "properties": {
+            "behavior": {
+              "type": "string",
+              "enum": [
+                "inherit",
+                "none",
+                "transparent",
+                "solid",
+                "gradient"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "geometry": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "V2 foreground props. Empty in V1. Requires a minRuntime that supports geometry.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "src",
+          "role",
+          "bytes",
+          "hash",
+          "triangles",
+          "materials",
+          "position"
+        ],
+        "properties": {
+          "src": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "foreground",
+              "diorama",
+              "prop"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "triangles": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "materials": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "decodedTextureBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "position": {
+            "$ref": "#/$defs/vec3"
+          },
+          "rotationYDegrees": {
+            "type": "number"
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    },
+    "credits": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "text"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 300
+              },
+              "appliesTo": {
+                "type": "string",
+                "enum": [
+                  "panorama",
+                  "audio",
+                  "geometry",
+                  "lighting"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "description": "Present only where attribution is contractually required. Not a provenance channel."
+    }
+  },
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9a-f]{6}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256-[A-Za-z0-9+/]{43}=$",
+      "description": "Base64 SHA-256 of the asset bytes, for integrity and cache identity."
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+      "maxLength": 160,
+      "description": "Relative to the manifest's own directory. Absolute URLs and parent traversal are rejected: a version directory must be self-contained and mirrorable."
+    },
+    "vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "imageAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "src",
+        "width",
+        "height",
+        "bytes",
+        "hash"
+      ],
+      "properties": {
+        "src": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "backgroundVariant": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/panoramaVariant"
+        },
+        {
+          "$ref": "#/$defs/solidVariant"
+        },
+        {
+          "$ref": "#/$defs/gradientVariant"
+        },
+        {
+          "$ref": "#/$defs/noneVariant"
+        }
+      ]
+    },
+    "panoramaVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "projection",
+        "src",
+        "format",
+        "width",
+        "height",
+        "bytes",
+        "decodedTextureBytes",
+        "hash"
+      ],
+      "properties": {
+        "kind": {
+          "const": "panorama"
+        },
+        "projection": {
+          "type": "string",
+          "enum": [
+            "equirectangular"
+          ]
+        },
+        "src": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "webp",
+            "avif",
+            "jpeg",
+            "ktx2"
+          ],
+          "description": "Lets the runtime choose a loader before fetching, instead of sniffing extensions."
+        },
+        "textureFormat": {
+          "type": "string",
+          "enum": [
+            "uastc",
+            "etc1s"
+          ],
+          "description": "Basis mode; required when format is ktx2."
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 8192
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 512,
+          "maximum": 4096
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Download size."
+        },
+        "decodedTextureBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Measured resident GPU/texture cost including mips. The real Quest constraint; published so runtime, budget gate and reviewer share one authority."
+        },
+        "hash": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "format": {
+                "const": "ktx2"
+              }
+            },
+            "required": [
+              "format"
+            ]
+          },
+          "then": {
+            "required": [
+              "textureFormat"
+            ]
+          }
+        }
+      ],
+      "description": "A 2:1 equirectangular background. NOTE: JSON Schema cannot express height*2 == width, nor the per-target byte/texture-memory budgets. Those are cross-field rules enforced by the Studio validator (see docs/architecture/05 section 5.12) and schema validation alone is NOT sufficient to accept a manifest."
+    },
+    "solidVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "color"
+      ],
+      "properties": {
+        "kind": {
+          "const": "solid"
+        },
+        "color": {
+          "$ref": "#/$defs/hexColor"
+        }
+      }
+    },
+    "gradientVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "kind": {
+          "const": "gradient"
+        },
+        "from": {
+          "$ref": "#/$defs/hexColor"
+        },
+        "to": {
+          "$ref": "#/$defs/hexColor"
+        }
+      }
+    },
+    "noneVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "const": "none"
+        }
+      }
+    }
+  }
+}

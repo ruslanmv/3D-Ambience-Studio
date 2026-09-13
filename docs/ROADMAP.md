@@ -16,12 +16,14 @@
 - validation
 - publish and update catalog
 
-## Milestone 2 — first AI panorama provider
+## Milestone 2 — first generating panorama provider
 
-- PanFusion adapter/worker contract
+- a **commercially-licensed** remote API provider behind the same interface
+  (PanFusion and DreamScene360 are evaluation-only: see `OPEN_SOURCE_INVENTORY.md`)
 - async job abstraction
-- prompt/provenance recording
+- prompt templates + provenance recording + reproducibility from seed
 - human review before publish
+- a self-hosted provider only if a weights audit clears (Diffusion360 is the candidate)
 
 ## Milestone 3 — production storage
 
@@ -37,6 +39,15 @@
 - TripoSR/TRELLIS provider(s)
 - glTF Transform optimization
 - Quest asset budgets and validation
+
+## Avatar-side track (runs in parallel from day one)
+
+Without these, nothing the Studio publishes can be seen. Detail in
+`docs/architecture/08-ROADMAP-AND-PR-PLAN.md`.
+
+- **A2** inject `loadTexture` so a panorama can load at all (start here)
+- **A1** catalog-driven scene list, replacing the hard-coded three ids
+- **A3** ambience adapter + XR background intent + the shared-fixture contract test
 
 ## Explicitly deferred
 

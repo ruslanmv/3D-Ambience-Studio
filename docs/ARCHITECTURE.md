@@ -1,5 +1,9 @@
 # Architecture
 
+Overview only. The implementation-ready plan — with the avatar-runtime
+inspection, the licence audit, the full contract and the PR sequence — is in
+`docs/architecture/` (start at `00-EXECUTIVE-DECISION.md`).
+
 ## System boundary
 
 ```text

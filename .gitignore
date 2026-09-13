@@ -1,0 +1,24 @@
+# Python build and cache artefacts. Absent until now, which is how a first run of
+# `pytest` put 12 .pyc files into a commit.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Node, for the web app. Absent until the wizard was built, which is how a first
+# `npm install` nearly put the whole dependency tree into a commit.
+node_modules/
+*.tsbuildinfo
+
+# Runtime data: generated projects, optimised work files and published output.
+data/
+
+# Local configuration. `config.py` reads .env, so this is where an API key lands — and it was not
+# ignored until the OpenAI route needed one. A key committed to a public repository is a key that
+# has to be revoked, not one that can be removed.
+.env
+.env.*
+!.env.example

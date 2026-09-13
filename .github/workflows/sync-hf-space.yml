@@ -1,0 +1,107 @@
+# =============================================================================
+# Sync to Hugging Face Space (force-by-default)
+# =============================================================================
+# Builds a clean deploy tree with deploy/huggingface/build-tree.sh and
+# force-pushes it to the Space as a single orphan commit. The Space is a
+# deployment target, not a fork: its history is disposable and is replaced on
+# every deploy, so an edit made in the Space UI does not survive.
+#
+# Required repository secrets:
+#   HF_TOKEN    - Hugging Face token with write access to the Space
+#   HF_USERNAME - Hugging Face username (e.g. ruslanmv)
+#   SPACE_NAME  - Space name (e.g. 3D-Ambience-Studio)
+#
+# The file list lives in build-tree.sh rather than here on purpose: a rename in
+# the repository breaks an inline `cp` silently, and a test checks the script's
+# output against what the Dockerfile copies.
+# =============================================================================
+name: Sync to Hugging Face Space (force-by-default)
+
+on:
+    push:
+        branches: ['main', 'master']
+    workflow_dispatch: {}
+
+jobs:
+    sync-to-hub:
+        runs-on: ubuntu-latest
+        concurrency:
+            # Supersede queued/in-flight deploys so a burst of merges results in a
+            # single push to HF instead of hammering it (which triggers HTTP 429).
+            group: hf-space-sync-canonical
+            cancel-in-progress: true
+        env:
+            HF_USERNAME: ${{ secrets.HF_USERNAME }}
+            SPACE_NAME: ${{ secrets.SPACE_NAME }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Set up Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.12'
+
+            # Fail here, before anything is pushed, if the tree and the Dockerfile
+            # have drifted apart — a missing COPY source only shows up as a failed
+            # Space build minutes later, in a log nobody is watching.
+            - name: Check the deploy tree
+              run: |
+                  python -m pip install --quiet pytest
+                  python -m pytest apps/api/tests/test_hf_deploy.py -q
+
+            - name: Build deploy tree and push to HF Space
+              env:
+                  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  # -- Validate secrets ------------------------------------------------
+                  if [ -z "${HF_USERNAME:-}" ] || [ -z "${SPACE_NAME:-}" ]; then
+                    echo "❌ Missing HF_USERNAME or SPACE_NAME repo Secrets."
+                    echo "   Add them under: Settings → Secrets and variables → Actions → Secrets."
+                    exit 1
+                  fi
+                  if [ -z "${HF_TOKEN:-}" ]; then
+                    echo "❌ Missing HF_TOKEN secret (write token for Spaces)."
+                    echo "   Add it under: Settings → Secrets and variables → Actions → New repository secret."
+                    exit 1
+                  fi
+
+                  REMOTE_URL="https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
+
+                  # -- Build the deploy tree ------------------------------------------
+                  DEPLOY_DIR="$(mktemp -d)/space"
+                  bash deploy/huggingface/build-tree.sh "$DEPLOY_DIR"
+
+                  # -- Create an orphan commit and force push --------------------------
+                  cd "$DEPLOY_DIR"
+                  git init -b main
+                  git lfs install --skip-smudge 2>/dev/null || true
+                  git config user.name  "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add -A
+                  git commit -m "Deploy from ${GITHUB_SHA::8}"
+
+                  echo "🔁 Pushing deploy tree → HF Space main..."
+                  # Hugging Face frequently returns HTTP 429 (rate limit) on git pushes,
+                  # especially after several deploys in a row. Retry with exponential
+                  # backoff instead of failing the whole job on a transient throttle.
+                  push_with_retry() {
+                    local max=6 delay=10 attempt=1
+                    until git push --force "$REMOTE_URL" main; do
+                      if [ "$attempt" -ge "$max" ]; then
+                        echo "❌ Push still failing after ${max} attempts — giving up."
+                        return 1
+                      fi
+                      echo "⚠️  Push failed (attempt ${attempt}/${max}). Likely HF 429 rate limit; waiting ${delay}s..."
+                      sleep "$delay"
+                      delay=$(( delay * 2 ))
+                      attempt=$(( attempt + 1 ))
+                    done
+                  }
+                  push_with_retry
+
+                  echo "✅ Sync complete → https://huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
