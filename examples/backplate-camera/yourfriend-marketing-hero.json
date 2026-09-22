@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "id": "yourfriend-marketing-hero-v1",
+  "runtime": "yourfriend",
+  "generatedBy": "tools/export-camera-contract.ts",
+  "sourceOfTruth": "src/config/heroCalibration.ts",
+  "nominalAvatar": {
+    "height": 1.6,
+    "width": 0.55,
+    "footY": 0
+  },
+  "profiles": {
+    "landscape": {
+      "master": {
+        "width": 1920,
+        "height": 1080
+      },
+      "fovDeg": 29.99921,
+      "aspect": 1.777778,
+      "pitchDeg": 0.888437,
+      "eyeHeightMetres": 0.8656,
+      "cameraDistanceMetres": 6.005,
+      "horizonY": 0.471062,
+      "headTopY": 0.242362,
+      "footAnchor": {
+        "x": 0.706746,
+        "y": 0.739521
+      },
+      "safeZone": {
+        "x0": 0.56,
+        "x1": 0.82,
+        "y0": 0.2342,
+        "y1": 0.7531
+      },
+      "groundLines": [
+        {
+          "metres": 4,
+          "y": 0.873636
+        },
+        {
+          "metres": 5,
+          "y": 0.793337
+        },
+        {
+          "metres": 6,
+          "y": 0.739745
+        },
+        {
+          "metres": 8,
+          "y": 0.672686
+        },
+        {
+          "metres": 12,
+          "y": 0.605553
+        },
+        {
+          "metres": 16,
+          "y": 0.571959
+        },
+        {
+          "metres": 24,
+          "y": 0.538345
+        },
+        {
+          "metres": 32,
+          "y": 0.521532
+        },
+        {
+          "metres": 48,
+          "y": 0.504713
+        }
+      ],
+      "quietZones": [
+        {
+          "id": "copy",
+          "x0": 0,
+          "y0": 0.16,
+          "x1": 0.5,
+          "y1": 0.78
+        },
+        {
+          "id": "scene-slider",
+          "x0": 0,
+          "y0": 0.84,
+          "x1": 0.42,
+          "y1": 1
+        }
+      ]
+    },
+    "portrait": {
+      "master": {
+        "width": 1080,
+        "height": 1920
+      },
+      "fovDeg": 43.3146,
+      "aspect": 0.5625,
+      "pitchDeg": -6.776198,
+      "eyeHeightMetres": 0.8512,
+      "cameraDistanceMetres": 6.005,
+      "horizonY": 0.649617,
+      "headTopY": 0.492701,
+      "footAnchor": {
+        "x": 0.499346,
+        "y": 0.833714
+      },
+      "safeZone": {
+        "x0": 0.3,
+        "x1": 0.7,
+        "y0": 0.4905,
+        "y1": 0.8436
+      },
+      "groundLines": [
+        {
+          "metres": 4,
+          "y": 0.928386
+        },
+        {
+          "metres": 5,
+          "y": 0.871481
+        },
+        {
+          "metres": 6,
+          "y": 0.83387
+        },
+        {
+          "metres": 8,
+          "y": 0.787217
+        },
+        {
+          "metres": 12,
+          "y": 0.74096
+        },
+        {
+          "metres": 16,
+          "y": 0.717979
+        },
+        {
+          "metres": 24,
+          "y": 0.695095
+        },
+        {
+          "metres": 32,
+          "y": 0.68369
+        },
+        {
+          "metres": 48,
+          "y": 0.672308
+        }
+      ],
+      "quietZones": [
+        {
+          "id": "copy",
+          "x0": 0,
+          "y0": 0.06,
+          "x1": 1,
+          "y1": 0.42
+        },
+        {
+          "id": "scene-slider",
+          "x0": 0,
+          "y0": 0.9,
+          "x1": 1,
+          "y1": 1
+        }
+      ]
+    }
+  }
+}

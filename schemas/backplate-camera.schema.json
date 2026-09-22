@@ -5,73 +5,216 @@
   "description": "The projection a consuming runtime renders its character with, published as data so a backplate can be generated to agree with it. Produced by the runtime (for 3D-Avatar-Chatbot: tools/ambience/export-camera-contract.mjs); never hand-written, because every field is derived from the live camera.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "id", "runtime", "profiles"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "runtime",
+    "profiles"
+  ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-    "runtime": {"type": "string", "minLength": 1},
-    "generatedBy": {"type": "string"},
-    "sourceOfTruth": {"type": "string"},
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "runtime": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedBy": {
+      "type": "string"
+    },
+    "sourceOfTruth": {
+      "type": "string"
+    },
     "nominalAvatar": {
-      "type": "object", "additionalProperties": false,
-      "required": ["height"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "height"
+      ],
       "properties": {
-        "height": {"type": "number", "exclusiveMinimum": 0},
-        "width": {"type": "number", "exclusiveMinimum": 0},
-        "footY": {"type": "number"}
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "footY": {
+          "type": "number"
+        }
       }
     },
     "profiles": {
-      "type": "object", "minProperties": 1,
-      "additionalProperties": {"$ref": "#/$defs/profile"}
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      }
     }
   },
   "$defs": {
     "profile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["master", "fovDeg", "aspect", "horizonY", "footAnchor", "safeZone"],
+      "required": [
+        "master",
+        "fovDeg",
+        "aspect",
+        "horizonY",
+        "footAnchor",
+        "safeZone"
+      ],
       "properties": {
         "master": {
-          "type": "object", "additionalProperties": false, "required": ["width", "height"],
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
           "properties": {
-            "width": {"type": "integer", "minimum": 1},
-            "height": {"type": "integer", "minimum": 1}
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         },
-        "fovDeg": {"type": "number", "exclusiveMinimum": 0, "maximum": 179},
-        "aspect": {"type": "number", "exclusiveMinimum": 0},
-        "pitchDeg": {"type": "number", "minimum": -90, "maximum": 90},
-        "eyeHeightMetres": {"type": "number"},
-        "cameraDistanceMetres": {"type": "number", "exclusiveMinimum": 0},
-        "horizonY": {"$ref": "#/$defs/fraction"},
-        "headTopY": {"$ref": "#/$defs/fraction"},
+        "fovDeg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 179
+        },
+        "aspect": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "pitchDeg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "eyeHeightMetres": {
+          "type": "number"
+        },
+        "cameraDistanceMetres": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "horizonY": {
+          "$ref": "#/$defs/fraction"
+        },
+        "headTopY": {
+          "$ref": "#/$defs/fraction"
+        },
         "footAnchor": {
-          "type": "object", "additionalProperties": false, "required": ["x", "y"],
-          "properties": {"x": {"$ref": "#/$defs/fraction"}, "y": {"$ref": "#/$defs/fraction"}}
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "y"
+          ],
+          "properties": {
+            "x": {
+              "$ref": "#/$defs/fraction"
+            },
+            "y": {
+              "$ref": "#/$defs/fraction"
+            }
+          }
         },
         "safeZone": {
-          "type": "object", "additionalProperties": false, "required": ["x0", "x1", "y0", "y1"],
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x0",
+            "x1",
+            "y0",
+            "y1"
+          ],
           "properties": {
-            "x0": {"$ref": "#/$defs/fraction"}, "x1": {"$ref": "#/$defs/fraction"},
-            "y0": {"$ref": "#/$defs/fraction"}, "y1": {"$ref": "#/$defs/fraction"}
+            "x0": {
+              "$ref": "#/$defs/fraction"
+            },
+            "x1": {
+              "$ref": "#/$defs/fraction"
+            },
+            "y0": {
+              "$ref": "#/$defs/fraction"
+            },
+            "y1": {
+              "$ref": "#/$defs/fraction"
+            }
           }
         },
         "groundLines": {
           "type": "array",
           "items": {
-            "type": "object", "additionalProperties": false, "required": ["metres", "y"],
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "metres",
+              "y"
+            ],
             "properties": {
-              "metres": {"type": "number", "exclusiveMinimum": 0},
-              "y": {"$ref": "#/$defs/fraction"}
+              "metres": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "y": {
+                "$ref": "#/$defs/fraction"
+              }
+            }
+          }
+        },
+        "quietZones": {
+          "description": "Regions of the frame that must stay low-contrast and free of detail, because something is composited over them. A marketing hero puts a headline in one; a runtime that renders nothing over its backplate has none. Distinct from safeZone, which is where the character stands and must be clear of *objects* rather than of contrast.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "x0",
+              "y0",
+              "x1",
+              "y1"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "x0": {
+                "$ref": "#/$defs/fraction"
+              },
+              "y0": {
+                "$ref": "#/$defs/fraction"
+              },
+              "x1": {
+                "$ref": "#/$defs/fraction"
+              },
+              "y1": {
+                "$ref": "#/$defs/fraction"
+              }
             }
           }
         }
       }
     },
     "fraction": {
-      "description": "A position in the frame, 0..1, with y increasing downward — the way an image editor and an image model both think.",
-      "type": "number", "minimum": 0, "maximum": 1
+      "description": "A position in the frame, 0..1, with y increasing downward \u2014 the way an image editor and an image model both think.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
     }
   }
 }

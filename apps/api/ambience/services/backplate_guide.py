@@ -116,9 +116,33 @@ def render_guide(profile: dict, *, labels: bool = True) -> Image.Image:
     draw.ellipse([fx - radius, fy - radius, fx + radius, fy + radius], fill=(0, 229, 255))
     draw.line([(fx - radius * 4, fy), (fx + radius * 4, fy)], fill=(0, 229, 255), width=max(2, height // 500))
 
+    # Quiet zones. Drawn as a hatched region rather than an outline, because they ask for something
+    # different from the keep-clear box: not "put no object here" but "put no *contrast* here". A
+    # marketing hero composites a headline over one of these, and a busy shoreline behind white
+    # display type is unreadable however well the horizon lands.
+    for quiet in profile.get("quietZones", []):
+        qx0, qy0 = _px(float(quiet["x0"]), width), _px(float(quiet["y0"]), height)
+        qx1, qy1 = _px(float(quiet["x1"]), width), _px(float(quiet["y1"]), height)
+        draw.rectangle([qx0, qy0, qx1, qy1], outline=(150, 120, 255), width=max(2, height // 500))
+        step = max(12, height // 40)
+        for offset in range(0, (qx1 - qx0) + (qy1 - qy0), step):
+            x_start, y_start = qx0 + offset, qy0
+            if x_start > qx1:
+                x_start, y_start = qx1, qy0 + (offset - (qx1 - qx0))
+            x_end, y_end = qx0, qy0 + offset
+            if y_end > qy1:
+                x_end, y_end = qx0 + (offset - (qy1 - qy0)), qy1
+            draw.line([(x_start, y_start), (x_end, y_end)], fill=(96, 76, 170), width=1)
+
     if labels:
         draw.text((8, max(0, horizon - 16)), f"HORIZON {float(profile['horizonY']) * 100:.1f}%", fill=(255, 64, 96))
         draw.text((box[0] + 8, box[1] + 8), "KEEP CLEAR", fill=(255, 209, 102))
+        for quiet in profile.get("quietZones", []):
+            draw.text(
+                (_px(float(quiet["x0"]), width) + 8, _px(float(quiet["y0"]), height) + 8),
+                f"QUIET: {quiet['id'].upper()}",
+                fill=(150, 120, 255),
+            )
     return image
 
 
@@ -155,6 +179,17 @@ def build_prompt(profile: dict, subject: str, *, negative: bool = False) -> str:
         "continuous unobstructed floor across the lower third",
         f"floor clearly readable at {float(foot['x']) * 100:.0f}% across and {float(foot['y']) * 100:.1f}% down",
         f"nothing prominent between {float(zone['x0']) * 100:.0f}% and {float(zone['x1']) * 100:.0f}% of the width",
+    ]
+    # A quiet zone is a contrast constraint, not an object constraint, so it is phrased that way:
+    # "keep this area clear" gets an empty area with a hard-edged cloud bank in it, which is
+    # exactly as unreadable behind display type as a shoreline would have been.
+    for quiet in profile.get("quietZones", []):
+        parts.append(
+            f"smooth low-contrast gradient with no detail or hard edges from "
+            f"{float(quiet['x0']) * 100:.0f}% to {float(quiet['x1']) * 100:.0f}% across and "
+            f"{float(quiet['y0']) * 100:.0f}% to {float(quiet['y1']) * 100:.0f}% down"
+        )
+    parts += [
         "no people, no characters",
         "empty scene, photographic, soft natural light",
     ]
